@@ -547,6 +547,7 @@ CCmdLineOptions::ParseResult CCmdLineOptions::Parse(int argc, char** argv)
     string argument_compressionoptions;
     string argument_generatorpixeltype;
     bool argument_versionflag = false;
+    string argument_streamimplementationname;
 
     // editorconfig-checker-disable
     cli_app.add_option("-c,--command", argument_command,
@@ -575,7 +576,7 @@ CCmdLineOptions::ParseResult CCmdLineOptions::Parse(int argc, char** argv)
     cli_app.add_option("-s,--source", argument_source_filename,
         "specifies the source CZI-file.")
         ->option_text("SOURCEFILE")
-        ->check(CLI::ExistingFile);
+        /*->check(CLI::ExistingFile)*/;
     cli_app.add_option("-o,--output", argument_output_filename,
         "specifies the output-filename. A suffix will be appended to the name given here depending on the type of the file.")
         ->option_text("OUTPUTFILE");
@@ -702,6 +703,9 @@ CCmdLineOptions::ParseResult CCmdLineOptions::Parse(int argc, char** argv)
         ->check(generatorpixeltype_validator);
     cli_app.add_flag("--version", argument_versionflag,
         "Print extended version-info and supported operations, then exit.");
+    cli_app.add_option("--streamimplementation", argument_streamimplementationname,
+        "Specifies which input-stream implementation is to be used.")
+        ->option_text("STREAMIMPLEMENTATION");
 
     auto formatter = make_shared<CustomFormatter>();
     cli_app.formatter(formatter);
@@ -880,6 +884,11 @@ CCmdLineOptions::ParseResult CCmdLineOptions::Parse(int argc, char** argv)
         {
             const bool b = TryParseGeneratorPixeltype(argument_generatorpixeltype, &this->pixelTypeForBitmapGenerator);
             ThrowIfFalse(b, "--generatorpixeltype", argument_generatorpixeltype);
+        }
+
+        if (!argument_streamimplementationname.empty())
+        {
+            this->streamImplementationName = argument_streamimplementationname;
         }
     }
     catch (runtime_error& exception)

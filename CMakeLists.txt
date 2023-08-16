@@ -96,6 +96,8 @@ option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_EIGEN3 "Prefer an Eigen3-package pres
 #  See here: https://discourse.cmake.org/t/findzstd/3506
 option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_ZSTD "Prefer a ZSTD-package present on the system" OFF)
 
+option(LIBCZI_BUILD_CZICMD_WITH_CURLSUPPORT "include curl-support for CZIcmd" ON)
+
 if (LIBCZI_BUILD_UNITTESTS)
  include (CTest)
  enable_testing()

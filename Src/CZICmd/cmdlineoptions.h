@@ -188,6 +188,7 @@ private:
     libCZI::CompressionMode compressionMode;
     std::shared_ptr<libCZI::ICompressParameters> compressionParameters;
     libCZI::PixelType pixelTypeForBitmapGenerator;
+    std::string streamImplementationName;
 public:
     /// Values that represent the result of the "Parse"-operation.
     enum class ParseResult
@@ -253,6 +254,7 @@ public:
     libCZI::CompressionMode GetCompressionMode() const { return this->compressionMode; }
     std::shared_ptr<libCZI::ICompressParameters> GetCompressionParameters() const { return this->compressionParameters; }
     libCZI::PixelType GetPixelGeneratorPixeltype() const { return this->pixelTypeForBitmapGenerator; }
+    const std::string& GetStreamImplementationName() const { return this->streamImplementationName; }
 private:
     friend struct RegionOfInterestValidator;
     friend struct DisplaySettingsValidator;

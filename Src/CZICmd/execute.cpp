@@ -15,6 +15,8 @@
 #include <map>
 #include <fstream>
 
+#include "../streams/streamsFactory.h"
+
 using namespace libCZI;
 using namespace std;
 using namespace rapidjson;
@@ -24,12 +26,28 @@ class CExecuteBase
 protected:
     static std::shared_ptr<ICZIReader> CreateAndOpenCziReader(const CCmdLineOptions& options)
     {
-        return CreateAndOpenCziReader(options.GetCZIFilename().c_str());
+        return CreateAndOpenCziReader(options.GetStreamImplementationName(), options.GetCZIFilename().c_str());
     }
 
-    static std::shared_ptr<ICZIReader> CreateAndOpenCziReader(const wchar_t* fileName)
+    static std::shared_ptr<ICZIReader> CreateAndOpenCziReader(const string& readerObjectName, const wchar_t* fileName)
     {
-        auto stream = libCZI::CreateStreamFromFile(fileName);
+        shared_ptr<libCZI::IStream> stream;
+        if (readerObjectName.empty() || readerObjectName == "file")
+        {
+            stream = libCZI::CreateStreamFromFile(fileName);
+        }
+        else
+        {
+            stream = CStreams::CreateStream(readerObjectName, convertToUtf8(fileName));
+        }
+
+        if (!stream)
+        {
+            stringstream ss;
+            ss << "Unable to create an input-stream of name '" << readerObjectName << "'.";
+            throw runtime_error(ss.str());
+        }
+
         auto spReader = libCZI::CreateCZIReader();
         spReader->Open(stream);
         return spReader;

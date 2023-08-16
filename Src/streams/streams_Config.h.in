@@ -1,0 +1,3 @@
+#pragma once
+
+#define STREAMS_CURL_AVAILABLE						@STREAMSOBJECTS_HAS_CURL@

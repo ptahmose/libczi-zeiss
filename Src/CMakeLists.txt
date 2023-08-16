@@ -11,6 +11,8 @@ endif()
 add_subdirectory(JxrDecode)
 add_subdirectory(libCZI)
 
+add_subdirectory(streams)
+
 if (LIBCZI_BUILD_CZICMD)
  add_subdirectory(CZICmd)
 endif(LIBCZI_BUILD_CZICMD)
