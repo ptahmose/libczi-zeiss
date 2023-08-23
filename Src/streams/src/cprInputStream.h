@@ -4,7 +4,7 @@
 
 #if STREAMS_CURL_AVAILABLE
 
-#include "../libCZI/libCZI.h"
+#include "../../libCZI/libCZI.h"
 #include <string>
 #include <cstdint>
 #include <cpr/cpr.h>

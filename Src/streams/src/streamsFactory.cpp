@@ -1,4 +1,4 @@
-#include "streamsFactory.h"
+#include "../include/streamsFactory.h"
 #include <streams_Config.h>
 #include "cprInputStream.h"
 

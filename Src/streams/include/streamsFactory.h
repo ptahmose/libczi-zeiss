@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../libCZI/libCZI.h"
+#include "../../libCZI/libCZI.h"
 
 class CStreams
 {

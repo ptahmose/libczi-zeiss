@@ -15,7 +15,7 @@
 #include <map>
 #include <fstream>
 
-#include "../streams/streamsFactory.h"
+#include "../streams/include/streamsFactory.h"
 
 using namespace libCZI;
 using namespace std;
