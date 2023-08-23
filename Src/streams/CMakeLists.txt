@@ -26,7 +26,7 @@ endif()
 
 # build "JxrDecode" as an "object library" (cf. https://cmake.org/cmake/help/v3.0/command/add_library.html) -> we want it to be merged into the
 #   static libCIZ-library
-add_library(StreamsObjects OBJECT streamsFactory.h cprInputStream.h cprInputStream.cpp streamsFactory.cpp)
+add_library(StreamsObjects OBJECT streamsFactory.h cprInputStream.h cprInputStream.cpp streamsFactory.cpp libCZIStream.h libCZIStream_lib.cpp)
 
 set_target_properties(StreamsObjects  PROPERTIES CXX_STANDARD 17)
 
