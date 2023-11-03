@@ -13,7 +13,6 @@
 #endif
 
 #if defined(WIN32ENV)
-#define NOMINMAX
 #include <Windows.h>
 #endif
 
