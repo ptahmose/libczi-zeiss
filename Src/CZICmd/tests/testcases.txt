@@ -51,8 +51,7 @@ CF31D135D3AF671557620442B8A36487
 --command SingleChannelPyramidTileAccessor --plane-coordinate C0 --rect rel(0,0,139100,98705) --background 0.3 --pyramidinfo 2|5
 https://ptahmose.de/owncloud/index.php/s/Hb4amj2WCd5QrqG/download
 Pyramid_Example_1_Out
-# was 9B834093C2FFCAF1479B7EB00D196974
-4224B296FC17AFCF9BAFC23B900F2BEE
+9B834093C2FFCAF1479B7EB00D196974
 
 #Testcase 9
 --command SingleChannelPyramidTileAccessor --plane-coordinate C0 --rect rel(0,0,119400,79700) --background 0.3 --pyramidinfo 3|4
@@ -64,8 +63,7 @@ Pyramid_Schultz_1_Out
 --command SingleChannelPyramidTileAccessor --plane-coordinate C0 --rect rel(0,0,73000,52400) --background 0.3 --pyramidinfo 2|7
 https://ptahmose.de/owncloud/index.php/s/kRNaCjFAKnXbVid/download
 Pyramid_Demo1385719_Out
-# was 6A02297BF42753E94F0631E6DC903832
-6CB21C23E6574B98B436E3B23FB54042
+6A02297BF42753E94F0631E6DC903832
 
 #Testcase 11
 --command SingleChannelScalingTileAccessor --plane-coordinate C0 --rect rel(23340,22718,27209,13340) --background 0.3 --zoom 0.04
@@ -85,7 +83,7 @@ Scaling_Zoom_0_02_Demo1385719
 --command ScalingChannelComposite  --rect rel(34939,25759,87347,64398) --background 0.3 --zoom 0.01
 https://ptahmose.de/owncloud/index.php/s/Hb4amj2WCd5QrqG/download
 ScalingChannelComposite_Zoom_0_05_Example_TMA1
-0A093E0D96AA250D0C4B7E779005644C
+4579E37836400C042BB672A38EA4A403
 
 #Testcase 14
 --command ChannelComposite --plane-coordinate C0Z10 --rect rel(0,0,512,512)
