@@ -1,0 +1,68 @@
+#Testcase 1
+--command SingleChannelTileAccessor --plane-coordinate C0 --rect rel(21300,21000,4096,4096)
+#2014_02_05__16_39__0020-2.czi
+https://ptahmose.de/owncloud/index.php/s/VaSsSr63Zq7jO1a/download
+2014_02_05__16_39__0020-2_Out
+41B296BA0E21116A0E0F9663F5E82D98
+
+#Testcase 2
+--command ChannelComposite --plane-coordinate C0Z10 --rect rel(0,0,512,512) --display-settings {"channels":[{"ch":0,"tinting":"#41ff00","weight":1.0,"black-point":0,"white-point":0.15259021896696421759365224689097},{"ch":1,"tinting":"#ffd200","weight":1.0,"black-point":0,"white-point":0.15259021896696421759365224689097},{"ch":2,"tinting":"#4178ff","weight":1.0,"black-point":0,"white-point":0.15259021896696421759365224689097}]}
+https://ptahmose.de/owncloud/index.php/s/KeTSnM4JETyPCyF/download
+DCV_30MB_Out1
+905F354F21C8D9208892ECBAD6AD45AF
+
+#Testcase 3
+#the arguments for the CZICmd-program (w/o --source and --output arguments since those are added by the python-script)
+--command ChannelComposite --plane-coordinate C0Z10 --rect rel(0,0,512,512)
+#the source document
+https://ptahmose.de/owncloud/index.php/s/KeTSnM4JETyPCyF/download
+#the output (base) filename
+DCV_30MB_Out2
+#and the md5sum of the result
+B6D9899D081EF75C86E79E6307BF528B
+
+#Testcase 4
+--command ChannelComposite  --rect rel(10000,10000,2000,2000)
+https://ptahmose.de/owncloud/index.php/s/Hb4amj2WCd5QrqG/download
+Example_1_Out
+B1C4AF4A069877A95E68C5BAAC08274E
+
+#Testcase 5
+--command ChannelComposite  --rect rel(0,0,1024,768)
+https://ptahmose.de/owncloud/index.php/s/wTPHNdMOFiwiklY/download
+Koala_w_gamma_Out
+# was -> 6E0CCF8F3ABA3CB08CE10CBE0A0AC88A
+A492DF08F2781987A9B670DCBDE0D3A5
+
+#Testcase 6
+--command ChannelComposite  --rect rel(0,0,1024,768)
+https://ptahmose.de/owncloud/index.php/s/chUKrr6qr4P00bX/download
+Koala_w_splines_Out
+37C500DF83E4DA8CA24A151CC4F8C508
+
+#Testcase 7
+--command ChannelComposite --display-settings {"channels":[{"ch":0,"splinelut":[0.362559241706161,0.876190476190476,0.554502369668246,0.561904761904762]}]}  --rect rel(150,80,700,600)
+https://ptahmose.de/owncloud/index.php/s/wTPHNdMOFiwiklY/download
+Koala_w_custDsplSettings_Out
+CF31D135D3AF671557620442B8A36487
+
+
+#Testcase 8
+--command SingleChannelPyramidTileAccessor --plane-coordinate C0 --rect rel(0,0,139100,98705) --background 0.3 --pyramidinfo 2|5
+https://ptahmose.de/owncloud/index.php/s/Hb4amj2WCd5QrqG/download
+Pyramid_Example_1_Out
+# was 9B834093C2FFCAF1479B7EB00D196974
+4224B296FC17AFCF9BAFC23B900F2BEE
+
+#Testcase 9
+--command SingleChannelPyramidTileAccessor --plane-coordinate C0 --rect rel(0,0,119400,79700) --background 0.3 --pyramidinfo 3|4
+https://ptahmose.de/owncloud/index.php/s/1f2mWvO8ItBJGsf/download
+Pyramid_Schultz_1_Out
+73546A1666A8B60FCDAB73665B90E26A
+
+#Testcase 10
+--command SingleChannelPyramidTileAccessor --plane-coordinate C0 --rect rel(0,0,73000,52400) --background 0.3 --pyramidinfo 2|7
+https://ptahmose.de/owncloud/index.php/s/kRNaCjFAKnXbVid/download
+Pyramid_Demo1385719_Out
+# was 6A02297BF42753E94F0631E6DC903832
+6CB21C23E6574B98B436E3B23FB54042
