@@ -66,3 +66,47 @@ https://ptahmose.de/owncloud/index.php/s/kRNaCjFAKnXbVid/download
 Pyramid_Demo1385719_Out
 # was 6A02297BF42753E94F0631E6DC903832
 6CB21C23E6574B98B436E3B23FB54042
+
+#Testcase 11
+--command SingleChannelScalingTileAccessor --plane-coordinate C0 --rect rel(23340,22718,27209,13340) --background 0.3 --zoom 0.04
+https://ptahmose.de/owncloud/index.php/s/kRNaCjFAKnXbVid/download
+Scaling_Zoom_0_04_Demo1385719
+A7F5B8E88D8196EE322F4D0ECFE768CD
+
+
+#Testcase 12
+--command SingleChannelScalingTileAccessor --plane-coordinate C0 --rect rel(23340,22718,27209,13340) --background 0.3 --zoom 0.02
+https://ptahmose.de/owncloud/index.php/s/kRNaCjFAKnXbVid/download
+Scaling_Zoom_0_02_Demo1385719
+533A65D0765962AA25971E6837784E5C
+
+
+#Testcase 13
+--command ScalingChannelComposite  --rect rel(34939,25759,87347,64398) --background 0.3 --zoom 0.01
+https://ptahmose.de/owncloud/index.php/s/Hb4amj2WCd5QrqG/download
+ScalingChannelComposite_Zoom_0_05_Example_TMA1
+0A093E0D96AA250D0C4B7E779005644C
+
+#Testcase 14
+--command ChannelComposite --plane-coordinate C0Z10 --rect rel(0,0,512,512)
+https://ptahmose.de/owncloud/index.php/s/nYqlH31MHbcqOMy/download
+DCV_30MB_gamma_spline_Out
+69B46E9DFA62FC8866C2C513152E1516
+
+#Testcase 15
+--command ChannelComposite --plane-coordinate C0Z10 --rect rel(0,0,512,512)
+https://ptahmose.de/owncloud/index.php/s/rrjEKD3b83ZFhPO/download
+DCV_30MB_gamma_spline-weight_Out
+218515CEE6C6319A7BCF8AFEAD672E90
+
+#Testcase 16
+--command SingleChannelPyramidTileAccessor --plane-coordinate C0 -y 2,6 --rect abs(-311094,160920,272377,268056) -f 1-2,5 -b 0.804,0.804,0.804
+https://ptahmose.de/owncloud/index.php/s/IuDzr77RCw6aKK1/download
+bf_3scenes
+43AD7F3CA3BCB4B7A1C7D382731C2F90
+
+#Testcase 16
+--command ExtractAttachment --selection {"name":"Thumbnail"}
+https://ptahmose.de/owncloud/index.php/s/IuDzr77RCw6aKK1/download
+thumbnail_BF_
+30A3564442F9ABC75ED6784332F36660
