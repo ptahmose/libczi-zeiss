@@ -1461,10 +1461,12 @@ bool CCmdLineOptions::TryParseDisplaySettings(const std::string& s, std::map<int
             *color = libCZI::RgbFloatColor{ f[0],f[0],f[0] };
         }
     }
-
-    if (color != nullptr)
+    else
     {
-        *color = libCZI::RgbFloatColor{ f[0],f[1],f[2] };
+        if (color != nullptr)
+        {
+            *color = libCZI::RgbFloatColor{ f[0],f[1],f[2] };
+        }
     }
 
     return true;
