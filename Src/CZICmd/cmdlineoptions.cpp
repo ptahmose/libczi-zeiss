@@ -944,7 +944,7 @@ bool CCmdLineOptions::CheckArgumentConsistency() const
     if (cmd != Command::PrintInformation)
     {
         auto str = this->MakeOutputFilename(nullptr, nullptr);
-        if (str.empty())
+        if (str.empty() && this->GetOutputFilename() != L".")
         {
             ss << ERRORPREFIX << "no output file specified";
             this->GetLog()->WriteLineStdErr(ss.str());
