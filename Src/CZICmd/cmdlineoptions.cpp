@@ -1053,6 +1053,14 @@ bool CCmdLineOptions::IsLogLevelEnabled(int level) const
 
 void CCmdLineOptions::SetOutputFilename(const std::wstring& s)
 {
+    // the magic value "." means "do not write an output file"
+    this->outputPath.clear();
+    if (s == L".")
+    {
+        this->outputFilename = s;
+        return;
+    }
+
 #if defined(WIN32ENV)
     wchar_t drive[_MAX_DRIVE];
     wchar_t dir[_MAX_DIR];
@@ -1086,17 +1094,20 @@ void CCmdLineOptions::SetOutputFilename(const std::wstring& s)
 std::wstring CCmdLineOptions::MakeOutputFilename(const wchar_t* suffix, const wchar_t* extension) const
 {
     std::wstring out;
-    out += this->outputPath;
-    out += this->outputFilename;
-    if (suffix != nullptr)
+    if (!this->outputPath.empty() || this->outputFilename != L".")
     {
-        out += suffix;
-    }
+        out += this->outputPath;
+        out += this->outputFilename;
+        if (suffix != nullptr)
+        {
+            out += suffix;
+        }
 
-    if (extension != nullptr)
-    {
-        out += L'.';
-        out += extension;
+        if (extension != nullptr)
+        {
+            out += L'.';
+            out += extension;
+        }
     }
 
     return out;
@@ -2180,7 +2191,7 @@ void CCmdLineOptions::PrintHelpStreamsObjects()
     // Here we parse the JSON-formatted string that contains the property bag for the input stream and
     //  construct a map<int, libCZI::StreamsFactory::Property> from it.
 
-    static constexpr struct 
+    static constexpr struct
     {
         const char* name;
         int stream_property_id;

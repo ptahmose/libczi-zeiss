@@ -11,10 +11,6 @@ destination_folder = "N:/Test"
 test_cases_filename = "testcases.txt"
 verbosity = 1
 
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
 def readTestCases(filename):
     testCases = []
     testCaseNo = 0
@@ -38,7 +34,6 @@ def readTestCases(filename):
 
     return testCases
 
-
 def run_test_cases(test_case):
     cmdlineargs = [czicmd_executable]
     test = test_case['args']
@@ -49,43 +44,41 @@ def run_test_cases(test_case):
     cmdlineargs.append("--source-stream-class")
     cmdlineargs.append("curl_http_inputstream")
     cmdlineargs.append("--output")
-    cmdlineargs.append(test_case['output'])
+    #cmdlineargs.append(test_case['output'])
+    cmdlineargs.append(".")
     cmdlineargs.append("--calc-hash")
     if verbosity > 2:
         print(cmdlineargs)
     p = subprocess.Popen(cmdlineargs, stdout=subprocess.PIPE, universal_newlines=True)
     (md5sum_output, err) = p.communicate()
-    #print("OUTPUT:" + md5sum_output)
     reResult = re.search("^hash of result: ([0-9a-fA-F]{32})", md5sum_output, re.MULTILINE)
     chk_sum = reResult.group(1)
-    #    print( "chksum:"+chksum+"   testCase:"+testCase['md5sum'])
     if (chk_sum.upper() == test_case['md5sum'].upper()):
-        #print(" -> OK")
         return True
     else:
-        #print("-> FAILURE")
         if verbosity > 0:
-            print("is:" + chk_sum.upper() + " expected:" + test_case['md5sum'].upper())
+            print("(hash is:" + chk_sum.upper() + " expected:" + test_case['md5sum'].upper() + ")")
         return False
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
     testCases = readTestCases(test_cases_filename)
 
     i = 1
+    error_count = 0
     for test_case in testCases:
+        print("Testcase #" + str(i) + ": ", end="")
         result = run_test_cases(test_case)
         if result:
-            print(str(i) + ": ** OK **")
+            print("** OK **")
         else:
-            print(str(i) + ": ** FAILURE **")
-        i = i + 1
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+            print("** FAILURE **")
+            error_count += 1
+        i += 1
+
+    print()
+    if error_count > 0:
+        print("There were " + str(error_count) + " error(s).")
+        sys.exit(1)
+    else:
+        print("All tests passed.")
+        sys.exit(0)

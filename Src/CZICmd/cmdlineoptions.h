@@ -230,8 +230,24 @@ public:
     int GetRectH() const { return this->rectH; }
     bool GetCalcHashOfResult() const { return this->calcHashOfResult; }
     bool GetDrawTileBoundaries() const { return this->drawTileBoundaries; }
+
+    /// Construct the output filename, given a suffix and an extension.
+    /// Note that there is a magic value for the output filename, namely the string ".". If this string is given, the intention is
+    /// to state that no output file should be written. In this case, the method returns an empty string.
+    /// 
+    /// \param  suffix      The suffix.
+    /// \param  extension   The extension.
+    ///
+    /// \returns    The output filename (constructed with the specified suffix and extension).
     std::wstring MakeOutputFilename(const wchar_t* suffix, const wchar_t* extension) const;
+
+    /// Gets the output filename. The string is interpreted as filename to which an extension (like ".PNG" or ".JPG" is appended).
+    /// Note that there is a magic value for the output filename, namely the string ".". If this string is given, the intention is
+    /// to state that no output file should be written. ls
+    /// 
+    /// \returns    The output filename (without extension).
     std::wstring GetOutputFilename() const { return this->outputFilename; }
+
     bool GetUseWICJxrDecoder() const { return this->useWicJxrDecoder; }
     libCZI::RgbFloatColor GetBackGroundColor() const { return this->backGroundColor; }
     bool IsLogLevelEnabled(int level) const;

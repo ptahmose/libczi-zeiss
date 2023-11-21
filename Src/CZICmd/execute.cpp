@@ -32,7 +32,7 @@ protected:
         else
         {
             stream = CExecuteBase::CreateInputStreamObject(
-                                    options.GetCZIFilename().c_str(), 
+                                    options.GetCZIFilename().c_str(),
                                     options.GetInputStreamClassName(),
                                     &options.GetInputStreamPropertyBag());
         }
@@ -669,9 +669,11 @@ public:
         DoCalcHashOfResult(re, options);
 
         std::wstring outputfilename = options.MakeOutputFilename(L"", L"PNG");
-
-        auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
-        saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, re.get());
+        if (!outputfilename.empty())
+        {
+            auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
+            saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, re.get());
+        }
 
         return true;
     }
@@ -756,8 +758,11 @@ public:
         DoCalcHashOfResult(mcComposite, options);
         std::wstring outputfilename = options.MakeOutputFilename(L"", L"PNG");
 
-        auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
-        saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, mcComposite.get());
+        if (!outputfilename.empty())
+        {
+            auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
+            saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, mcComposite.get());
+        }
 
         return true;
     }
@@ -829,8 +834,11 @@ public:
         DoCalcHashOfResult(re, options);
         std::wstring outputfilename = options.MakeOutputFilename(L"", L"PNG");
 
-        auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
-        saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, re.get());
+        if (!outputfilename.empty())
+        {
+            auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
+            saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, re.get());
+        }
 
         return true;
     }
@@ -856,8 +864,12 @@ public:
         DoCalcHashOfResult(re, options);
         std::wstring outputfilename = options.MakeOutputFilename(L"", L"PNG");
 
-        auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
-        saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, re.get());
+        if (!outputfilename.empty())
+        {
+            auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
+            saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, re.get());
+        }
+
         return true;
     }
 };
@@ -939,8 +951,11 @@ public:
         DoCalcHashOfResult(mcComposite, options);
         std::wstring outputfilename = options.MakeOutputFilename(L"", L"PNG");
 
-        auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
-        saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, mcComposite.get());
+        if (!outputfilename.empty())
+        {
+            auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
+            saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, mcComposite.get());
+        }
 
         return true;
     }
@@ -1016,7 +1031,11 @@ public:
                 {
                     auto filename = GenerateFilename(index, info, options);
                     auto attchmnt = spReader->ReadAttachment(index);
-                    WriteFile(filename, attchmnt.get());
+                    if (!filename.empty())
+                    {
+                        WriteFile(filename, attchmnt.get());
+                    }
+
                     HandleHashOfResult(
                         [&](uint8_t* ptrHash, size_t sizeHash)->bool
                         {
@@ -1190,8 +1209,11 @@ private:
         suffix += std::to_wstring(index);
         std::wstring outputfilename = options.MakeOutputFilename(suffix.c_str(), L"PNG");
 
-        auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
-        saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, bm);
+        if (!outputfilename.empty())
+        {
+            auto saver = CSaveBitmapFactory::CreateSaveBitmapObj(nullptr);
+            saver->Save(outputfilename.c_str(), SaveDataFormat::PNG, bm);
+        }
     }
 };
 
