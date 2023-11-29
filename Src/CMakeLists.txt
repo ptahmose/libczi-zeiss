@@ -26,7 +26,7 @@ if (LIBCZI_BUILD_CURL_BASED_STREAM)
     message(STATUS "Using CURL lib(s): ${CURL_LIBRARIES}")
 
   else(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LIBCURL)
-    message(STATUS "Could not find libcURL.  This dependency will be downloaded.")
+    message(STATUS "Attempting to download and build libcURL.")
     include(FetchContent)
     # It seems for MacOS, the secure transport API is deprecated (->  https://curl.se/mail/lib-2023-09/0027.html),
     #  using OpenSSL seems to be the way to go here - so, we better do not default to secure transport here.
@@ -48,6 +48,18 @@ if (LIBCZI_BUILD_CURL_BASED_STREAM)
     set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
     set(ENABLE_UNICODE ON CACHE BOOL "" FORCE)
+
+    if(NOT DEFINED CACERTPEM_DOWNLOADED OR NOT ${CACERTPEM_DOWNLOADED})
+      file(DOWNLOAD
+      "https://curl.se/ca/cacert.pem"
+      "${CMAKE_BINARY_DIR}/vendor/cacert/"
+      SHOW_PROGRESS
+      STATUS status
+      LOG log)
+    endif()
+
+    SET(CURL_CA_BUNDLE "${CMAKE_BINARY_DIR}/vendor/cacert/cacert.pem" CACHE BOOL "" FORCE)
+
 
     FetchContent_MakeAvailable(libcurl)
   endif(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LIBCURL)
