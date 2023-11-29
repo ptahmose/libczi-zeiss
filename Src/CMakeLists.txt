@@ -52,7 +52,7 @@ if (LIBCZI_BUILD_CURL_BASED_STREAM)
     if(NOT DEFINED CACERTPEM_DOWNLOADED OR NOT ${CACERTPEM_DOWNLOADED})
       file(DOWNLOAD
       "https://curl.se/ca/cacert.pem"
-      "${CMAKE_BINARY_DIR}/vendor/cacert/"
+      "${CMAKE_BINARY_DIR}/vendor/cacert/cacert.pem"
       SHOW_PROGRESS
       STATUS status
       LOG log)
