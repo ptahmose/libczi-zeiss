@@ -145,6 +145,7 @@ configure_file (
   "${CMAKE_CURRENT_BINARY_DIR}/CZIcmd_Config.h"
   )
 
+add_subdirectory(tests)
 
 # checking platform -> https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/Checking-Platform
 #                   -> https://stackoverflow.com/questions/9160335/os-specific-instructions-in-cmake-how-to
