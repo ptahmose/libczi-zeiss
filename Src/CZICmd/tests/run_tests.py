@@ -7,7 +7,6 @@ import re
 import argparse
 
 czicmd_executable = r"D:\dev\Github\libczi-zeiss-ptahmose\out\build\x64-Debug\Src\CZICmd\CZIcmd.exe"
-destination_folder = "N:/Test"
 test_cases_filename = "testcases.txt"
 verbosity = 1
 
@@ -44,7 +43,6 @@ def run_test_cases(test_case):
     cmdlineargs.append("--source-stream-class")
     cmdlineargs.append("curl_http_inputstream")
     cmdlineargs.append("--output")
-    #cmdlineargs.append(test_case['output'])
     cmdlineargs.append(".")
     cmdlineargs.append("--calc-hash")
     if verbosity > 2:
@@ -60,7 +58,48 @@ def run_test_cases(test_case):
             print("(hash is:" + chk_sum.upper() + " expected:" + test_case['md5sum'].upper() + ")")
         return False
 
+def verbosity_level(string):
+    # Map text labels to numbers
+    levels = {'none': 0, 'normal': 1, 'chatty': 2, 'debug': 3}
+    
+    # Check if the string is one of the text labels
+    if string.lower() in levels:
+        return levels[string.lower()]
+    
+    # If not, try to convert it to an integer and check if it's in the valid range
+    try:
+        value = int(string)
+        if 0 <= value <= 3:
+            return value
+        else:
+            raise argparse.ArgumentTypeError("Verbosity level must be between 0 and 3")
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid verbosity level: {string}")
+
+
 if __name__ == '__main__':
+     # Create the parser
+    parser = argparse.ArgumentParser(description='Run CZICmd with a list of parameters, and check the result against a known hash.')
+
+     # Add arguments with short options
+    parser.add_argument('-c', '--czicmd-executable', type=str, required=False,
+                        help='Path to the czicmd executable')
+    parser.add_argument('-t', '--testcases', type=str, required=False,
+                        help='Path to the testcases file')
+    parser.add_argument('-v', '--verbosity', type=verbosity_level, default='normal', required=False,
+                        help='Set the verbosity level (0=none, 1=normal, 2=chatty, 3=debug)')
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    if args.czicmd_executable:
+      czicmd_executable = args.czicmd_executable
+
+    if args.testcases:
+      test_cases_filename = args.testcases
+
+    verbosity = args.verbosity
+
     testCases = readTestCases(test_cases_filename)
 
     i = 1
