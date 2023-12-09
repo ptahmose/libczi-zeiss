@@ -60,6 +60,15 @@ def run_test_cases(test_case):
             print("(hash is:" + chk_sum.upper() + " expected:" + test_case['md5sum'].upper() + ")")
         return False
 
+def parse_commandline_arguments:
+    parser = argparse.ArgumentParser(description='Run CZIcmd testcases.')
+    parser.add_argument('--czicmd', dest='czicmd_executable', default=czicmd_executable, help='path to CZIcmd executable')
+    parser.add_argument('--testcases', dest='test_cases_filename', default=test_cases_filename, help='path to testcases file')
+    parser.add_argument('--verbosity', dest='verbosity', default=verbosity, help='verbosity level')
+    parser.add_argument('--destination', dest='destination_folder', default=destination_folder, help='destination folder')
+    args = parser.parse_args()
+    return args
+
 if __name__ == '__main__':
     testCases = readTestCases(test_cases_filename)
 
