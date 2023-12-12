@@ -24,9 +24,6 @@ def readTestCases(filename):
                 testCases[testCaseNo].update({'input': line})
                 testCasePart += 1
             elif testCasePart == 2:
-                testCases[testCaseNo].update({'output': line})
-                testCasePart += 1
-            elif testCasePart == 3:
                 testCases[testCaseNo].update({'md5sum': line})
                 testCasePart = 0
                 testCaseNo += 1
