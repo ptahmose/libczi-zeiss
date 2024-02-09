@@ -1,6 +1,0 @@
-add_executable(RemoveScenes main.cpp)
-
-set_target_properties(RemoveScenes PROPERTIES CXX_STANDARD 11)
-target_compile_definitions(RemoveScenes PRIVATE _LIBCZISTATICLIB)
-
-target_link_libraries(RemoveScenes PRIVATE libCZIStatic)
