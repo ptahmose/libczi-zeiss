@@ -415,6 +415,7 @@ void CCziReaderWriter::ReadCziStructure()
                 },
                 &attchmntDirSegmentSize);
 
+            this->attachmentDirectory.SetModified(false);
             this->attachmentDirectorySegment.SetPositionAndAllocatedSize(pos, attchmntDirSegmentSize.AllocatedSize, false);
         }
 
