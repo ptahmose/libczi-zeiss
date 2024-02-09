@@ -130,8 +130,8 @@ void ICziReaderWriter::ReplaceSubBlock(int key, const libCZI::AddSubBlockInfoStr
     wi.writeFunc = std::bind(&CCziReaderWriter::WriteToOutputStream, this, placeholders::_1, placeholders::_2, placeholders::_3, placeholders::_4, placeholders::_5);
     wi.useSpecifiedAllocatedSize = false;
 
-    auto sizeOfSbBlk = CWriterUtils::WriteSubBlock(wi, addSbBlkInfo);
-    this->nextSegmentInfo.SetNextSegmentPos(wi.segmentPos + sizeOfSbBlk /*+ sizeof(SegmentHeader)*/);
+    const auto sizeOfSbBlk = CWriterUtils::WriteSubBlock(wi, addSbBlkInfo);
+    this->nextSegmentInfo.SetNextSegmentPos(wi.segmentPos + sizeOfSbBlk);
 }
 
 /*virtual*/void CCziReaderWriter::SyncAddAttachment(const libCZI::AddAttachmentInfo& addAttachmentInfo)
@@ -155,7 +155,7 @@ void ICziReaderWriter::ReplaceSubBlock(int key, const libCZI::AddSubBlockInfoStr
     wi.writeFunc = std::bind(&CCziReaderWriter::WriteToOutputStream, this, placeholders::_1, placeholders::_2, placeholders::_3, placeholders::_4, placeholders::_5);
     wi.useSpecifiedAllocatedSize = false;
 
-    auto sizeOfAttchmnt = CWriterUtils::WriteAttachment(wi, addAttachmentInfo);
+    const auto sizeOfAttchmnt = CWriterUtils::WriteAttachment(wi, addAttachmentInfo);
     this->nextSegmentInfo.SetNextSegmentPos(wi.segmentPos + sizeOfAttchmnt);
 }
 
@@ -273,7 +273,7 @@ void CCziReaderWriter::Finish()
                 [&](size_t index, const CCziSubBlockDirectoryBase::SubBlkEntry& e)->bool
                 {
                     f(index, e);
-            return true;
+                    return true;
                 });
         };
         sbBlkDirWriteInfo.writeFunc = std::bind(&CCziReaderWriter::WriteToOutputStream, this, placeholders::_1, placeholders::_2, placeholders::_3, placeholders::_4, placeholders::_5);
@@ -311,7 +311,7 @@ void CCziReaderWriter::Finish()
                 [&](size_t index, const CCziAttachmentsDirectoryBase::AttachmentEntry& e)->bool
                 {
                     f(index, e);
-            return true;
+                    return true;
                 });
         };
         attchmntDirWriteInfo.writeFunc = std::bind(&CCziReaderWriter::WriteToOutputStream, this, placeholders::_1, placeholders::_2, placeholders::_3, placeholders::_4, placeholders::_5);
@@ -422,7 +422,7 @@ void CCziReaderWriter::ReadCziStructure()
         pos = this->hdrSegmentData.GetMetadataPosition();
         if (pos != 0)
         {
-            auto segmentSize = CCZIParse::ReadSegmentHeader(CCZIParse::SegmentType::Metadata, this->stream.get(), this->hdrSegmentData.GetMetadataPosition());
+            const auto segmentSize = CCZIParse::ReadSegmentHeader(CCZIParse::SegmentType::Metadata, this->stream.get(), this->hdrSegmentData.GetMetadataPosition());
             this->metadataSegment.SetPositionAndAllocatedSize(pos, segmentSize.AllocatedSize, false);
         }
     }
