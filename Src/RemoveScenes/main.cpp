@@ -25,9 +25,6 @@ static void RemoveSIndex(const std::shared_ptr<ICziReaderWriter>& reader_writer,
     add_sub_block_info.physicalHeight = info.physicalSize.h;
     add_sub_block_info.PixelType = info.pixelType;
     add_sub_block_info.pyramid_type = info.pyramidType;
-
-    // note: there is a bug in libCZI here (info.compressionModeRaw is not valid here, we work around
-    //        this by using the compression mode of the sub-block which we have to read in any case)
     add_sub_block_info.compressionModeRaw = info.compressionModeRaw;
 
     auto subBlock = reader_writer->ReadSubBlock(index);
@@ -37,9 +34,6 @@ static void RemoveSIndex(const std::shared_ptr<ICziReaderWriter>& reader_writer,
     auto sub_block_metadata = subBlock->GetRawData(ISubBlock::MemBlkType::Metadata, &sub_block_metadata_size);
     size_t sub_block_attachment_size;
     auto sub_block_attachment = subBlock->GetRawData(ISubBlock::MemBlkType::Attachment, &sub_block_attachment_size);
-
-    // workaround for above bug in libCZI
-    add_sub_block_info.compressionModeRaw = subBlock->GetSubBlockInfo().compressionModeRaw;
 
     add_sub_block_info.sizeData = sub_block_data_size;
     add_sub_block_info.getData =
