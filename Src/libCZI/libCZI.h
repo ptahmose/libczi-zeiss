@@ -126,6 +126,8 @@ namespace libCZI
     /// \return The newly allocated bitmap containing the image from the sub-block.
     LIBCZI_API std::shared_ptr<IBitmapData>  CreateBitmapFromSubBlock(ISubBlock* subBlk);
 
+    LIBCZI_API std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromCompressedData(libCZI::CompressionMode compression_mode,const void* pv,size_t size,libCZI::PixelType pixelType,std::uint32_t width,std::uint32_t height);
+
     /// Creates metadata-object from a metadata segment.
     /// \param [in] metadataSegment The metadata segment object.
     /// \return The newly created metadata object.
@@ -273,7 +275,7 @@ namespace libCZI
         /// Gets compression mode enumeration. Note that unknown compression-mode identifiers (unknown to libCZI)
         /// are mapped to CompressionMode::Invalid.
         /// \returns The compression mode enumeration.
-        CompressionMode         GetCompressionMode() const
+        libCZI::CompressionMode         GetCompressionMode() const
         {
             return Utils::CompressionModeFromRawCompressionIdentifier(this->compressionModeRaw);
         }
