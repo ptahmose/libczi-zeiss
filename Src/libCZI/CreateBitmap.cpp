@@ -66,6 +66,25 @@ static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_ZStd1(ISubB
     return CreateBitmapFromCompressedData_ZStd1(ptr, size, subBlockInfo.pixelType, subBlockInfo.physicalSize.w, subBlockInfo.physicalSize.h);
 }
 
+static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromCompressedData_Uncompressed(const void* pv, size_t size, libCZI::PixelType pixelType, std::uint32_t width, std::uint32_t height)
+{
+    size_t stride = static_cast<size_t>(width) * CziUtils::GetBytesPerPel(pixelType);
+    if (stride * height > size)
+    {
+        throw std::logic_error("insufficient size of subblock");
+    }
+
+    auto bitmap = CBitmapData<>::Create(pixelType, width, height, stride);
+    ScopedBitmapLockerSP locker_bitmap(bitmap);
+    memcpy(
+        locker_bitmap.ptrDataRoi,
+        pv,
+        stride * height);
+
+    return bitmap;
+}
+
+
 static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_Uncompressed(ISubBlock* subBlk)
 {
     size_t size;
@@ -130,6 +149,8 @@ std::shared_ptr<libCZI::IBitmapData> libCZI::CreateBitmapFromCompressedData(
         return CreateBitmapFromCompressedData_ZStd0(pv, size, pixelType, width, height);
     case CompressionMode::Zstd1:
         return CreateBitmapFromCompressedData_ZStd1(pv, size, pixelType, width, height);
+    case CompressionMode::UnCompressed:
+        return CreateBitmapFromCompressedData_Uncompressed(pv, size, pixelType, width, height);
     default:
         throw std::logic_error("The specified compression mode is not supported or implemented.");
     }
