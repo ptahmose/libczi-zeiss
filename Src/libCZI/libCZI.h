@@ -528,6 +528,13 @@ namespace libCZI
         std::map<int, std::vector<PyramidLayerStatistics>> scenePyramidStatistics;
     };
 
+    /// Statistics about the attachments in the CZI-document;
+    struct AttachmentStatistics
+    {
+        /// The total number of attachments.
+        int attachmentsCount;
+    };
+
     /// Interface for sub-block repository. This interface is used to access the sub-blocks in a CZI-file.
     class LIBCZI_API ISubBlockRepository
     {
@@ -630,6 +637,10 @@ namespace libCZI
         /// \param index Index of the attachment (as reported by the Enumerate-methods).
         /// \return If successful, the attachment object; otherwise an empty shared_ptr.
         virtual std::shared_ptr<IAttachment> ReadAttachment(int index) = 0;
+
+        /// Gets statistics about the attachments in the document.
+        /// \returns The attachment statistics.
+        virtual AttachmentStatistics GetAttachmentStatistics() = 0;
 
         virtual ~IAttachmentRepository() = default;
     };

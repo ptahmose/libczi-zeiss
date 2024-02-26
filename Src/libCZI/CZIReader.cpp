@@ -205,8 +205,8 @@ CCZIReader::CCZIReader() : isOperational(false)
     this->ThrowIfNotOperational();
     CziReaderCommon::EnumerateSubset(
         std::bind(&CCziAttachmentsDirectory::EnumAttachments, &this->attachmentDir, std::placeholders::_1),
-        contentFileType, 
-        name, 
+        contentFileType,
+        name,
         funcEnum);
 }
 
@@ -220,6 +220,14 @@ CCZIReader::CCZIReader() : isOperational(false)
     }
 
     return this->ReadAttachment(entry);
+}
+
+/*virtual*/AttachmentStatistics CCZIReader::GetAttachmentStatistics()
+{
+    this->ThrowIfNotOperational();
+    AttachmentStatistics statistics;
+    statistics.attachmentsCount = this->attachmentDir.GetAttachmentCount();
+    return statistics;
 }
 
 std::shared_ptr<ISubBlock> CCZIReader::ReadSubBlock(const CCziSubBlockDirectory::SubBlkEntry& entry)
