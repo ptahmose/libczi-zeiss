@@ -167,11 +167,27 @@ static void UpdateMetadata(const std::shared_ptr<ICziReaderWriter>& reader_write
     reader_writer->SyncWriteMetadata(metadata_info);
 }
 
-
-int main()
+const wchar_t *GetWC(const char *c)
 {
+    const size_t cSize = strlen(c)+1;
+    wchar_t* wc = new wchar_t[cSize];
+    mbstowcs (wc, c, cSize);
+
+    return wc;
+}
+
+int main(int argc, char* _argv[])
+{
+    if(argc != 2){
+        std::cout << "Usage: " << _argv[0] << " path/to/my/file.czi" << std::endl;
+        return 1;
+    }
+
+    std::cout << "Merging file" << _argv[1] << std::endl;
+    auto filePath = GetWC(_argv[1]);
+
     std::cout << "Opening input/output stream" << std::endl;
-    const auto io_stream = libCZI::CreateInputOutputStreamForFile(LR"(D:\Data\CZI\libczi#94\test.czi)");
+    const auto io_stream = libCZI::CreateInputOutputStreamForFile(filePath);
 
     // create the reader-writer-object
     auto reader_writer = libCZI::CreateCZIReaderWriter();
