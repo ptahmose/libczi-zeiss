@@ -22,7 +22,7 @@
 FROM python:3.9-slim-buster
 
 # Install git and other dependencies
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 # Install Sphinx some extensions
 RUN pip install sphinx breathe exhale sphinx-book-theme recommonmark sphinx-markdown-tables
