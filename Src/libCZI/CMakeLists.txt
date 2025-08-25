@@ -91,6 +91,7 @@ set(LIBCZISRCFILES
             libCZI_Utilities.h
             libCZI_Write.h
             libCZI_StreamsLib.h
+            libCZI_SubBlock.h
             MD5Sum.h
             MultiChannelCompositor.h
             SingleChannelAccessorBase.h
@@ -123,6 +124,12 @@ set(LIBCZISRCFILES
             StreamsLib/azureblobinputstream.cpp
             subblock_cache.h
             subblock_cache.cpp
+            SubblockMetadata.h
+            SubblockMetadata.cpp
+            SubblockAttachmentAccessor.h
+            SubblockAttachmentAccessor.cpp
+            BitmapOperationsBitonal.h
+            BitmapOperationsBitonal.cpp
 )
 
 # prepare the configuration-file "libCZI_Config.h"
@@ -144,6 +151,22 @@ else()
 endif()
 
 set(libCZI_HAVE_ENDIAN_H ${HAVE_ENDIAN_H})
+
+if (LIBCZI_BUILDCONFIG_HAS_BUILTIN_BSWAP32)
+	set (libCZI_Has_builtin_bswap32 1)
+else()	
+	set (libCZI_Has_builtin_bswap32 0)	
+endif()
+if (LIBCZI_BUILDCONFIG_HAS_BYTESWAP_IN_STDLIB_BSWAP32)
+	set (libCZI_Has_byteswap_long_in_stdlib 1)
+else()	
+	set (libCZI_Has_byteswap_long_in_stdlib 0)
+endif()
+if (LIBCZI_BUILDCONFIG_HAS_BSWAP_IN_SYS_ENDIAN)
+	set (libCZI_Has_bswap_long_in_sys_endian 1)
+else()	
+	set (libCZI_Has_bswap_long_in_sys_endian 0)
+endif()
 
 if (CRASH_ON_UNALIGNED_ACCESS)
   set (libCZI_CrashOnUnalignedIntegers 1)

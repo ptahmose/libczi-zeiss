@@ -185,7 +185,7 @@ CCZIReader::CCZIReader() :
             info.pixelType = CziUtils::PixelTypeFromInt(entry.PixelType);
             info.coordinate = entry.coordinate;
             info.logicalRect = IntRect{ entry.x,entry.y,entry.width,entry.height };
-            info.physicalSize = IntSize{ (std::uint32_t)entry.storedWidth, (std::uint32_t)entry.storedHeight };
+            info.physicalSize = IntSize{ static_cast<std::uint32_t>(entry.storedWidth), static_cast<std::uint32_t>(entry.storedHeight) };
             info.mIndex = entry.mIndex;
             info.pyramidType = CziUtils::PyramidTypeFromByte(entry.pyramid_type_from_spare);
             info.filePosition = entry.FilePosition;
@@ -337,6 +337,12 @@ std::shared_ptr<ISubBlock> CCZIReader::ReadSubBlock(const CCziSubBlockDirectory:
 
     auto subBlkData = CCZIParse::ReadSubBlock(stream_reference.get(), entry.FilePosition, allocateInfo);
 
+    // RAII wrapper to ensure memory cleanup in case of exceptions
+    auto dataDeleter = [&allocateInfo](void* ptr) { if (ptr) { allocateInfo.free(ptr); } };
+    std::unique_ptr<void, decltype(dataDeleter)> dataGuard(subBlkData.ptrData, dataDeleter);
+    std::unique_ptr<void, decltype(dataDeleter)> attachmentGuard(subBlkData.ptrAttachment, dataDeleter);
+    std::unique_ptr<void, decltype(dataDeleter)> metadataGuard(subBlkData.ptrMetadata, dataDeleter);
+
     // We now use configuration options to determine 
     // - whether we want to use the information from the sub-block-directory or the sub-block-header.
     // - whether we want to ignore discrepancies between the two.
@@ -380,7 +386,14 @@ std::shared_ptr<ISubBlock> CCZIReader::ReadSubBlock(const CCziSubBlockDirectory:
         info.pyramidType = CziUtils::PyramidTypeFromByte(subBlkData.spare[0]);
     }
 
-    return std::make_shared<CCziSubBlock>(info, subBlkData, free);
+    auto sub_block = std::make_shared<CCziSubBlock>(info, subBlkData, free);
+
+    // Release the memory from the guards since CCziSubBlock has taken ownership
+    dataGuard.release();
+    attachmentGuard.release();
+    metadataGuard.release();
+
+    return sub_block;
 }
 
 std::shared_ptr<libCZI::IAttachment> CCZIReader::ReadAttachment(const CCziAttachmentsDirectory::AttachmentEntry& entry)
