@@ -15,14 +15,15 @@ function(CheckForAdditionalLibsRequiredForAtomic VARIABLE)
 
      # define a small test program which uses 'std::atomic' with a couple of types. It seems, with the Risc-V case, 'uchar' is the only type which fails.
      set (_CHECK_ATOMIC_PROG "
+     #include <cstdint>
      #include <atomic>
 
      int main()
      {
        std::atomic_bool atomic_bool{false};
-       std::atomic_uint32_t atomic_uint32{0};
-       std::atomic_uint64_t atomic_uint64{0};
-       std::atomic_uchar atomic_uchar{0};
+       std::atomic<std::uint32_t> atomic_uint32{0};
+       std::atomic<std::uint64_t> atomic_uint64{0};
+       std::atomic<unsigned char> atomic_uchar{0};
 
        atomic_bool.store(true);
        ++atomic_uint32;
