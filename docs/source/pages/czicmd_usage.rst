@@ -86,7 +86,7 @@ Options:
                     JSON-notation.
 
   -o,--output OUTPUTFILE
-                    specifies the output-filename. A suffix will be appended to
+                    Specifies the output-filename. A suffix will be appended to
                     the name given here depending on the type of the file.
 
   -p,--plane-coordinate PLANE-COORDINATE
@@ -119,7 +119,7 @@ Options:
   -j,--jpgxrcodec DECODERNAME
                     Choose which decoder implementation is used. Specifying
                     "WIC" will request the Windows-provided decoder - which is
-                    only available on Windows.By default the internal
+                    only available on Windows. By default the internal
                     JPG-XR-decoder is used.
 
   -v,--verbosity VERBOSITYLEVEL
@@ -132,13 +132,13 @@ Options:
                     Specify the background color. BACKGROUND is either a single
                     float or three floats, separated by a comma or semicolon. In
                     case of a single float, it gives a grayscale value, in case
-                    of three floats it gives a RGB - value.The floats are given
+                    of three floats it gives a RGB - value. The floats are given
                     normalized to a range from 0 to 1.
 
   -y,--pyramidinfo PYRAMIDINFO
                     For the command 'SingleChannelPyramidTileAccessor' the
                     argument PYRAMIDINFO specifies the pyramid layer. It
-                    consists of two integers(separated by a comma, semicolon or
+                    consists of two integers (separated by a comma, semicolon or
                     pipe-symbol), where the first specifies the
                     minification-factor (between pyramid-layers) and the second
                     the pyramid-layer (starting with 0 for the layer with the
@@ -209,7 +209,7 @@ Options:
 
   --bitmapgenerator BITMAPGENERATORCLASSNAME
                     Only used for 'CreateCZI': specifies the bitmap-generator to
-                    use. Possibly values are "gdi", "freetype", "null" or
+                    use. Possible values are "gdi", "freetype", "null" or
                     "default". Run with argument '--version' to get a list of
                     available bitmap-generators.
 
@@ -221,7 +221,7 @@ Options:
   --compressionopts COMPRESSIONDESCRIPTION
                     Only used for 'CreateCZI': a string in a defined format
                     which states the compression-method and (compression-method
-                    specific) parameters.The format is "compression_method:
+                    specific) parameters. The format is "compression_method:
                     key=value; ...". It starts with the name of the
                     compression-method, followed by a colon, then followed by a
                     list of key-value pairs which are separated by a semicolon.
