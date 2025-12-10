@@ -12,9 +12,10 @@
 
 #include "Site.h"
 
-using namespace std;
 using namespace libCZI;
 using namespace libCZI::detail;
+using namespace std;
+using namespace libCZI;
 
 struct COMDeleter
 {
