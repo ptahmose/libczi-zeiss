@@ -78,6 +78,7 @@ set(LIBCZISRCFILES
             inc_libCZI_Config.h
             IndexSet.h
             libCZI.h
+            libCZI_Async.h
             libCZI_Compositor.h
             libCZI_compress.h
             libCZI_DimCoordinate.h
