@@ -13,10 +13,10 @@ namespace libCZI
     /// AsyncStatus represents the status of an asynchronous operation.
     enum class AsyncStatus : std::uint8_t
     {
-        Started,	///< The operation is still running (may or may not have produced any internal progress).
-        Completed,	///< The operation has finished successfully.
-        Canceled,	///< The operation finished due to cancellation.
-        Error		///< The operation finished due to a failure.
+        Started,    ///< The operation is still running (may or may not have produced any internal progress).
+        Completed,  ///< The operation has finished successfully.
+        Canceled,   ///< The operation finished due to cancellation.
+        Error       ///< The operation finished due to a failure.
     };
 
     /// IAsyncInfo is the base interface for all asynchronous operations, providing methods to
@@ -108,9 +108,9 @@ namespace libCZI
     {
         std::uint64_t offset;
         std::uint64_t size;
-        std::shared_ptr<IMemoryBlock> buffer;               // valid until callback fires
-        std::function<void(const AsyncReadRequestResult&)> callback; // function pointer
-        void* user_data;             // opaque user pointer
+        std::shared_ptr<IMemoryBlock> buffer;                           ///< valid until callback fires
+        std::function<void(const AsyncReadRequestResult&)> callback;    ///< function pointer
+        void* user_data;                                                ///< opaque user pointer
     };
 
     class IAsyncInputStream

@@ -198,4 +198,3 @@ void AsyncAction::OnNotifyCompleted()
         this->completed_callback_(this);
     }
 }
-

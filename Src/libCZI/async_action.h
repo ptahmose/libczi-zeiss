@@ -29,6 +29,8 @@ namespace libCZI
             // Transitions are guarded by completion_reserved_ to ensure single-writer semantics.
             std::atomic<libCZI::AsyncStatus> async_status_{ libCZI::AsyncStatus::Started };
 
+            // Callback invoked when cancellation is requested by the consumer (Cancel/CancelCore).
+            // Provided by the producer to propagate cancellation intent to the underlying operation.
             std::function<void()> cancellation_requested_;
 
             // Stores exception information if the operation fails.
@@ -241,6 +243,5 @@ namespace libCZI
                  }
              }
         };
-
     }
 }
