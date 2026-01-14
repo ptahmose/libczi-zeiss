@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 
 namespace libCZI
 {
@@ -31,6 +32,7 @@ namespace libCZI
         virtual ~IAsyncInfo() = default;
         virtual void Cancel() = 0;
         virtual AsyncStatus GetStatus() const = 0;
+        virtual std::exception_ptr GetException() const = 0;
     };
 
     /// IAsyncOperation is used to represent a single-shot, eventually-completing asynchronous operation that produces only
@@ -41,12 +43,16 @@ namespace libCZI
     /// - completes exactly once into one of the terminal states (Completed, Canceled or Error),  
     /// - after completion, the result (or error/cancel status) is stable and can be observed repeatedly.  
     ///
-    ///
     /// \tparam	TResult	Type of the result.
     template <typename TResult>
     class IAsyncOperation : public IAsyncInfo
     {
     public:
+        /// Gets the result. This method may only be called once the operation has completed,
+        /// otherwise an exception will be thrown. If the operation completed with status
+        /// Failed or Canceled, an exception will be thrown as well.
+        ///
+        /// \returns	The result.
         virtual TResult GetResult() = 0;
     };
 
@@ -124,8 +130,8 @@ namespace libCZI
     class LIBCZI_API ICZIReaderAsync
     {
     public:
-        virtual std::shared_ptr< IAsyncAction> Open(const std::shared_ptr<IAsyncInputStream>& stream) = 0;
-        virtual std::shared_ptr< IAsyncOperation<std::shared_ptr< ISubBlock>>> ReadSubBlock(std::uint32_t index) = 0;
+        virtual std::shared_ptr<IAsyncAction> Open(const std::shared_ptr<IAsyncInputStream>& stream) = 0;
+        virtual std::shared_ptr<IAsyncOperation<std::shared_ptr< ISubBlock>>> ReadSubBlock(std::uint32_t index) = 0;
 
         virtual ~ICZIReaderAsync() = default;
     };

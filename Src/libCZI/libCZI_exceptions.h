@@ -333,4 +333,24 @@ namespace libCZI
         {
         }
     };
+
+    class LibCZIAsyncOperationInvalidStateException : public LibCZIException
+    {
+    public:
+        enum class ErrorType
+        {
+            GetResultCalledBeforeCompletion,   ///< The GetResult method was called before the operation completed.
+            GetResultCalledOnCanceledOperation,///< The GetResult method was called on an operation that was canceled.
+            GetResultCalledOnFailedOperation,  ///< The GetResult method was called on an operation that failed.
+            InvalidStateTransition             ///< A transition such as SetDone/SetCanceled/SetError was invoked when the operation was already terminal.
+        };
+
+        explicit LibCZIAsyncOperationInvalidStateException(const char* szErrMsg, ErrorType error_type)
+            : LibCZIException(szErrMsg), error_type(error_type)
+        {
+        }
+
+    private:
+        ErrorType error_type;
+    };
 }
