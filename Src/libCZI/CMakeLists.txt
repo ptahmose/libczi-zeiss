@@ -124,6 +124,9 @@ set(LIBCZISRCFILES
             StreamsLib/preadfileinputstream.h
             StreamsLib/azureblobinputstream.h
             StreamsLib/azureblobinputstream.cpp
+            StreamsLib/windowsfileapcasyncinputstream.h
+            StreamsLib/windowsfileapcasyncinputstream.cpp
+            StreamsLib/StructurePool.h
             subblock_cache.h
             subblock_cache.cpp
             SubblockMetadata.h

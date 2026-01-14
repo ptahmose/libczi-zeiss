@@ -15,6 +15,7 @@
 namespace libCZI
 {
     class IStream;
+    class IAsyncInputStream;
 
     /// A factory object for creating streams objects. 
     /// libCZI is operating on abstractions (IStream for an input stream, IOutputStream for an output stream and IInputOutputStream
@@ -281,6 +282,8 @@ namespace libCZI
         ///
         /// \returns    The newly created and initialized stream.
         static std::shared_ptr<libCZI::IStream> CreateStream(const CreateStreamInfo& stream_info, const std::string& file_identifier);
+
+        static std::shared_ptr<libCZI::IAsyncInputStream> CreateAsyncStream(const CreateStreamInfo& stream_info, const std::string& file_identifier);
 
         /// Creates and initializes a new instance of the specified stream class. If the specified
         /// class is not known, then this function will return nullptr. In case of an error when
