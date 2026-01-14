@@ -339,10 +339,13 @@ namespace libCZI
     public:
         enum class ErrorType
         {
-            GetResultCalledBeforeCompletion,   ///< The GetResult method was called before the operation completed.
-            GetResultCalledOnCanceledOperation,///< The GetResult method was called on an operation that was canceled.
-            GetResultCalledOnFailedOperation,  ///< The GetResult method was called on an operation that failed.
-            InvalidStateTransition             ///< A transition such as SetDone/SetCanceled/SetError was invoked when the operation was already terminal.
+            GetResultCalledBeforeCompletion,        ///< The GetResult method was called before the operation completed.
+            GetResultCalledOnCanceledOperation,     ///< The GetResult method was called on an operation that was canceled.
+            GetResultCalledOnFailedOperation,       ///< The GetResult method was called on an operation that failed.
+            InvalidStateTransition,                 ///< A transition such as SetDone/SetCanceled/SetError was invoked when the operation was already terminal.
+            GetExceptionCalledBeforeCompletion,     ///< The GetException method was called before the operation completed.
+            GetExceptionCalledOnCanceledOperation,  ///< The GetException method was called on an operation that was canceled.
+            GetExceptionCalledOnCompletedOperation  ///< The GetException method was called on an operation that completed successfully.
         };
 
         explicit LibCZIAsyncOperationInvalidStateException(const char* szErrMsg, ErrorType error_type)

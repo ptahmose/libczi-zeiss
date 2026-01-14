@@ -30,7 +30,13 @@ namespace libCZI
     {
     public:
         virtual ~IAsyncInfo() = default;
+        /// Requests cancellation of the operation. This is a best-effort signal: it may be invoked multiple times
+        /// and completion may still report any terminal state (Completed, Canceled, Error). No status is returned
+        /// directly from this call.
         virtual void Cancel() = 0;
+        /// Gets the exception if the operation failed.
+        /// Throws LibCZIAsyncOperationInvalidStateException when the operation is not in the Error state.
+        /// Multiple calls are allowed and will return the same exception pointer when in the Error state.
         virtual AsyncStatus GetStatus() const = 0;
         virtual std::exception_ptr GetException() const = 0;
     };
@@ -50,11 +56,12 @@ namespace libCZI
     public:
         virtual void SetCompleted(const std::function<void(IAsyncOperation*)>& completed_callback) = 0;
 
-        /// Gets the result. This method may only be called once the operation has completed,
-        /// otherwise an exception will be thrown. If the operation completed with status
-        /// Failed or Canceled, an exception will be thrown as well.
+        /// Gets the result. This method may only be called once the operation has completed successfully.
+        /// If the operation is not in the Completed state, a LibCZIAsyncOperationInvalidStateException is thrown;
+        /// the original failure exception is not rethrown here (use GetException when status is Error).
+        /// Multiple calls are allowed.
         ///
-        /// \returns	The result.
+        /// \returns    The result.
         virtual TResult GetResult() = 0;
     };
 
@@ -62,6 +69,9 @@ namespace libCZI
     {
     public:
         virtual void SetCompleted(const std::function<void(IAsyncAction*)>& completed_callback) = 0;
+        /// Validates completion. If the operation is not in the Completed state, a LibCZIAsyncOperationInvalidStateException
+        /// is thrown; the original failure exception is not rethrown here (use GetException when status is Error).
+        /// Multiple calls are allowed.
         virtual void GetResult() = 0;
     };
 
