@@ -350,6 +350,8 @@ namespace libCZI
         {
         }
 
+        ErrorType GetErrorType() const { return this->error_type; }
+
     private:
         ErrorType error_type;
     };

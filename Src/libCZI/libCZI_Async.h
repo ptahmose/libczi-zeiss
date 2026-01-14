@@ -48,6 +48,8 @@ namespace libCZI
     class IAsyncOperation : public IAsyncInfo
     {
     public:
+        virtual void SetCompleted(const std::function<void(IAsyncOperation*)>& completed_callback) = 0;
+
         /// Gets the result. This method may only be called once the operation has completed,
         /// otherwise an exception will be thrown. If the operation completed with status
         /// Failed or Canceled, an exception will be thrown as well.

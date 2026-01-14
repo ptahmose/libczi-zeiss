@@ -26,20 +26,27 @@ void AsyncAction::SetCompleted(const std::function<void(libCZI::IAsyncAction*)>&
         throw std::invalid_argument("completed_callback cannot be null");
     }
 
+    // Ensure SetCompleted is called only once.
     bool expected = false;
     if (!this->callback_set_reserved_.compare_exchange_strong(expected, true))
     {
         throw std::logic_error("SetCompleted has already been called on this AsyncAction");
     }
 
+    // Now we own the slot for setting the callback.
     this->completed_callback_ = completed_callback;
 
     // Publish the callback so the producer thread can see it
+    // Release ensures that the write to completed_callback_ happens before this store.
     this->callback_ready_.store(true, std::memory_order_release);
 
-    // Ensure that if we don't see the completed status, the producer thread will see our callback
+    // Ensure that if we don't see the completed status, the producer thread will see our callback.
+    // This atomic_thread_fence(seq_cst) is part of a store-load barrier (Dekker's algorithm pattern) 
+    // interacting with the fence in SetDone/SetCanceled/SetError.
+    // Rule: One of the threads must see the other's flag.
     std::atomic_thread_fence(std::memory_order_seq_cst);
 
+    // Check if the operation is already done.
     if (this->async_status_.load(std::memory_order_acquire) != AsyncStatus::Started)
     {
         this->NotifyCompleted();
@@ -101,28 +108,24 @@ libCZI::AsyncStatus AsyncAction::GetStatus() const
 
 void AsyncAction::SetDone()
 {
-    const AsyncStatus status = this->async_status_.load(std::memory_order_relaxed);
-    if (status != AsyncStatus::Started)
+    // Ensure that only one thread transitions the state to terminal.
+    bool expected = false;
+    if (!this->completion_reserved_.compare_exchange_strong(expected, true))
     {
         throw LibCZIAsyncOperationInvalidStateException(
             "SetDone called after the asynchronous action already left the started state.",
             LibCZIAsyncOperationInvalidStateException::ErrorType::InvalidStateTransition);
     }
     
-    // We use exchange to act as a barrier and ensure only one transition happens,
-    // though the contract says producer calls these once. If multiple producer calls race,
-    // only one should succeed.
-    AsyncStatus expected = AsyncStatus::Started;
-    if (!this->async_status_.compare_exchange_strong(expected, AsyncStatus::Completed, std::memory_order_release))
-    {
-         throw LibCZIAsyncOperationInvalidStateException(
-            "SetDone called after the asynchronous action already left the started state.",
-            LibCZIAsyncOperationInvalidStateException::ErrorType::InvalidStateTransition);
-    }
+    // We own the transition now.
+    // Publish the status change. Release ensures that any payload writes (none here) are visible.
+    this->async_status_.store(AsyncStatus::Completed, std::memory_order_release);
     
-    // Ensure that if we don't see the callback ready, the consumer thread will see our status change
+    // Ensure that if we don't see the callback ready, the consumer thread will see our status change.
+    // This corresponds to the fence in SetCompleted.
     std::atomic_thread_fence(std::memory_order_seq_cst);
     
+    // If the consumer has already set the callback, we must invoke it.
     if (this->callback_ready_.load(std::memory_order_acquire))
     {
         this->NotifyCompleted();
@@ -131,14 +134,19 @@ void AsyncAction::SetDone()
 
 void AsyncAction::SetCanceled()
 {
-    AsyncStatus expected = AsyncStatus::Started;
-    if (!this->async_status_.compare_exchange_strong(expected, AsyncStatus::Canceled, std::memory_order_release))
+    // Ensure that only one thread transitions the state to terminal.
+    bool expected = false;
+    if (!this->completion_reserved_.compare_exchange_strong(expected, true))
     {
         throw LibCZIAsyncOperationInvalidStateException(
             "SetCanceled called after the asynchronous action already left the started state.",
             LibCZIAsyncOperationInvalidStateException::ErrorType::InvalidStateTransition);
     }
 
+    // Publish the status change to Canceled.
+    this->async_status_.store(AsyncStatus::Canceled, std::memory_order_release);
+
+    // Store-Load barrier to coordinate with SetCompleted.
     std::atomic_thread_fence(std::memory_order_seq_cst);
 
     if (this->callback_ready_.load(std::memory_order_acquire))
@@ -149,17 +157,23 @@ void AsyncAction::SetCanceled()
 
 void AsyncAction::SetError(std::exception_ptr exception_ptr)
 {
-    // Write error before publishing status
-    this->error_ = exception_ptr;
-
-    AsyncStatus expected = AsyncStatus::Started;
-    if (!this->async_status_.compare_exchange_strong(expected, AsyncStatus::Error, std::memory_order_release))
+    // Ensure that only one thread transitions the state to terminal.
+    // This also acts as a lock for the error_ member variable.
+    bool expected = false;
+    if (!this->completion_reserved_.compare_exchange_strong(expected, true))
     {
         throw LibCZIAsyncOperationInvalidStateException(
             "SetError called after the asynchronous action already left the started state.",
             LibCZIAsyncOperationInvalidStateException::ErrorType::InvalidStateTransition);
     }
 
+    // Write error before publishing status. Use of completion_reserved_ guarantees exclusive access.
+    this->error_ = exception_ptr;
+
+    // Publish status. Release ensures the write to error_ is visible to any thread observing Error status.
+    this->async_status_.store(AsyncStatus::Error, std::memory_order_release);
+
+    // Store-Load barrier to coordinate with SetCompleted.
     std::atomic_thread_fence(std::memory_order_seq_cst);
     
     if (this->callback_ready_.load(std::memory_order_acquire))
@@ -171,6 +185,7 @@ void AsyncAction::SetError(std::exception_ptr exception_ptr)
 void AsyncAction::NotifyCompleted()
 {
     bool expected = false;
+    // invoked_ ensures the callback runs exactly once, regardless of race.
     if (this->invoked_.compare_exchange_strong(expected, true))
     {
         // At this point we know:
