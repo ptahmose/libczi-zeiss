@@ -75,7 +75,7 @@ WindowsFileApcAsyncInputStream::~WindowsFileApcAsyncInputStream()
     }
 }
 
-WindowsFileApcAsyncInputStream::RequestId WindowsFileApcAsyncInputStream::ReadAsync(const AsyncReadRequest& request) override
+WindowsFileApcAsyncInputStream::RequestId WindowsFileApcAsyncInputStream::ReadAsync(const AsyncReadRequest& request)
 {
     if (!request.callback)
     {

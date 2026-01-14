@@ -13,6 +13,7 @@
 #include "simplefileinputstream.h"
 #include "preadfileinputstream.h"
 #include "azureblobinputstream.h"
+#include "windowsfileapcasyncinputstream.h"
 #include "../utilities.h"
 
 using namespace libCZI;
@@ -114,6 +115,38 @@ static const struct
         },
 };
 
+static const struct
+{
+    StreamsFactory::StreamClassInfo stream_class_info;
+
+    /// Function for creating and initializing the stream-instance. Note that we have two variants here, one for UTF-8 and one for wide string.
+    /// Only one must be provided (the other one can be nullptr) - in which case the string is converted to the other format by the caller.
+    /// By calling the appropriate function, the caller can avoid the conversion.
+    std::shared_ptr<libCZI::IAsyncInputStream>(*pfn_create_stream_utf8)(const StreamsFactory::CreateStreamInfo& stream_info, const std::string& file_name);
+
+    /// Function for creating and initializing the stream-instance. Note that we have two variants here, one for UTF-8 and one for wide string.
+    /// Only one must be provided (the other one can be nullptr) - in which case the string is converted to the other format by the caller.
+    /// By calling the appropriate function, the caller can avoid the conversion.
+    std::shared_ptr<libCZI::IAsyncInputStream>(*pfn_create_stream_wide)(const StreamsFactory::CreateStreamInfo& stream_info, const std::wstring& file_name);
+} async_stream_classes[] =
+{
+#if LIBCZI_WINDOWSAPI_AVAILABLE
+        {
+            { "windows_apc_inputstream", "Windows APC-based file stream", nullptr, nullptr },
+            [](const StreamsFactory::CreateStreamInfo& stream_info, const std::string& file_name) -> std::shared_ptr<libCZI::IAsyncInputStream>
+            {
+                (void)stream_info;
+                return std::make_shared<WindowsFileApcAsyncInputStream>(file_name);
+            },
+            [](const StreamsFactory::CreateStreamInfo& stream_info, const std::wstring& file_name) -> std::shared_ptr<libCZI::IAsyncInputStream>
+            {
+                (void)stream_info;
+                return std::make_shared<WindowsFileApcAsyncInputStream>(file_name.c_str());
+            },
+        }
+#endif  // LIBCZI_WINDOWSAPI_AVAILABLE
+};
+
 static std::once_flag streams_factory_already_initialized;
 
 void libCZI::StreamsFactory::Initialize()
@@ -177,6 +210,11 @@ int libCZI::StreamsFactory::GetStreamClassesCount()
     return sizeof(stream_classes) / sizeof(stream_classes[0]);
 }
 
+int libCZI::StreamsFactory::GetAsyncStreamClassesCount()
+{
+    return sizeof(async_stream_classes) / sizeof(async_stream_classes[0]);
+}
+
 std::shared_ptr<libCZI::IStream> libCZI::StreamsFactory::CreateStream(const CreateStreamInfo& stream_info, const std::string& file_identifier)
 {
     for (int i = 0; i < StreamsFactory::GetStreamClassesCount(); ++i)
@@ -212,6 +250,50 @@ std::shared_ptr<libCZI::IStream> libCZI::StreamsFactory::CreateStream(const Crea
             else if (stream_classes[i].pfn_create_stream_utf8)
             {
                 return stream_classes[i].pfn_create_stream_utf8(stream_info, Utilities::convertWchar_tToUtf8(file_identifier.c_str()));
+            }
+
+            break;
+        }
+    }
+
+    return {};
+}
+
+std::shared_ptr<libCZI::IAsyncInputStream> libCZI::StreamsFactory::CreateAsyncStream(const CreateStreamInfo& stream_info, const std::string& file_identifier)
+{
+    for (int i = 0; i < StreamsFactory::GetAsyncStreamClassesCount(); ++i)
+    {
+        if (stream_info.class_name == async_stream_classes[i].stream_class_info.class_name)
+        {
+            if (async_stream_classes[i].pfn_create_stream_utf8)
+            {
+                return async_stream_classes[i].pfn_create_stream_utf8(stream_info, file_identifier);
+            }
+            else if (async_stream_classes[i].pfn_create_stream_wide)
+            {
+                return async_stream_classes[i].pfn_create_stream_wide(stream_info, Utilities::convertUtf8ToWchar_t(file_identifier.c_str()));
+            }
+
+            break;
+        }
+    }
+
+    return {};
+}
+
+std::shared_ptr<libCZI::IAsyncInputStream> libCZI::StreamsFactory::CreateAsyncStream(const CreateStreamInfo& stream_info, const std::wstring& file_identifier)
+{
+    for (int i = 0; i < StreamsFactory::GetAsyncStreamClassesCount(); ++i)
+    {
+        if (stream_info.class_name == async_stream_classes[i].stream_class_info.class_name)
+        {
+            if (async_stream_classes[i].pfn_create_stream_wide)
+            {
+                return async_stream_classes[i].pfn_create_stream_wide(stream_info, file_identifier);
+            }
+            else if (async_stream_classes[i].pfn_create_stream_utf8)
+            {
+                return async_stream_classes[i].pfn_create_stream_utf8(stream_info, Utilities::convertWchar_tToUtf8(file_identifier.c_str()));
             }
 
             break;

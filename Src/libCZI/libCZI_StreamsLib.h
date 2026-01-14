@@ -295,6 +295,8 @@ namespace libCZI
         /// \returns    The newly created and initialized stream.
         static std::shared_ptr<libCZI::IStream> CreateStream(const CreateStreamInfo& stream_info, const std::wstring& file_identifier);
 
+        static std::shared_ptr<libCZI::IAsyncInputStream> CreateAsyncStream(const CreateStreamInfo& stream_info, const std::wstring& file_identifier);
+
         /// This structure gathers information about a stream class.
         struct LIBCZI_API StreamClassInfo
         {
@@ -326,6 +328,8 @@ namespace libCZI
         ///
         /// \returns    The number of available stream classes.
         static int GetStreamClassesCount();
+
+        static int GetAsyncStreamClassesCount();
 
         /// Creates an instance of the default streams-objects for reading from the file-system.
         ///
