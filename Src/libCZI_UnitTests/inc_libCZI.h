@@ -11,3 +11,4 @@
 #include "../libCZI/stdAllocator.h"
 #include "../libCZI/BitmapOperations.h"
 #include "../libCZI/CziSubBlockDirectory.h"
+#include "../libCZI/libCZI_Async.h"
