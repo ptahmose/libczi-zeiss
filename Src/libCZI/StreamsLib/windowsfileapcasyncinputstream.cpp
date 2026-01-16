@@ -92,7 +92,6 @@ WindowsFileApcAsyncInputStream::RequestId WindowsFileApcAsyncInputStream::ReadAs
         throw invalid_argument("The size of the specified buffer object must be larger than the requested read size");
     }
 
-
     auto id_and_pointer = this->pending_operations_pool_.Add(PendingOperationData{});
     PendingOperationData* context = std::get<1>(id_and_pointer);
     context->id = std::get<0>(id_and_pointer);
@@ -167,5 +166,38 @@ void WindowsFileApcAsyncInputStream::HandleReadCompletion(DWORD dw_error_code, D
     const bool b = this->pending_operations_pool_.TryGetAndRemove(id, nullptr);
 
     callback(read_request_result);
+}
+
+void WindowsFileApcAsyncInputStream::Cancel(RequestId request_id) override
+{
+    if (request_id == IAsyncInputStream::kRequestIdAll)
+    {
+        // Cancel all pending operations
+        BOOL ok = CancelIoEx(this->file_handle_, nullptr);
+        if (!ok)
+        {
+            throw std::runtime_error("CancelIoEx failed: " + std::to_string(GetLastError()));
+        }
+    }
+    else
+    {
+        // TODO(JBL): I guess there is a race condition here (if the operation completes between the
+        //             lookup and the CancelIoEx call). Need to verify and fix if so.
+        PendingOperationData* context = this->pending_operations_pool_.Get(request_id);
+        if (context == nullptr)
+        {
+            throw invalid_argument("Invalid request_id");
+        }
+
+        const BOOL ok = CancelIoEx(this->file_handle_, &context->overlapped);
+        if (!ok)
+        {
+            // We don't want to throw if the operation already completed
+            if (GetLastError() != ERROR_NOT_FOUND)
+            {
+                throw std::runtime_error("CancelIoEx failed: " + std::to_string(GetLastError()));
+            }
+        }
+    }
 }
 #endif

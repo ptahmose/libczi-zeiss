@@ -38,7 +38,7 @@ CMemInputOutputStream::CMemInputOutputStream(const void* pv, size_t size) :CMemI
 {
     if (offset < this->usedSize)
     {
-        size_t sizeToCopy = (std::min)((size_t)size, (size_t)(this->usedSize - offset));
+        size_t sizeToCopy = (std::min)(static_cast<size_t>(size), this->usedSize - offset);
         memcpy(pv, this->ptr + offset, sizeToCopy);
         if (ptrBytesRead != nullptr)
         {
