@@ -39,4 +39,3 @@ std::shared_ptr<void> MemAsyncInputStream::GetCopy(size_t* pSize) const
 {
     return  this->mem_stream_.GetCopy(pSize);
 }
-

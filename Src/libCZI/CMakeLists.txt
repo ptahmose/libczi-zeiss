@@ -138,6 +138,8 @@ set(LIBCZISRCFILES
 
             async_action.h
             async_action.cpp
+            CZIReaderAsync.h
+            CZIReaderAsync.cpp
 )
 
 # prepare the configuration-file "libCZI_Config.h"
