@@ -168,7 +168,7 @@ void WindowsFileApcAsyncInputStream::HandleReadCompletion(DWORD dw_error_code, D
     callback(read_request_result);
 }
 
-void WindowsFileApcAsyncInputStream::Cancel(RequestId request_id) override
+void WindowsFileApcAsyncInputStream::Cancel(RequestId request_id)
 {
     if (request_id == IAsyncInputStream::kRequestIdAll)
     {

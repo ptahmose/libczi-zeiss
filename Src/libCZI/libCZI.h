@@ -872,3 +872,4 @@ namespace libCZI
 #include "libCZI_Write.h"
 #include "libCZI_ReadWrite.h"
 #include "libCZI_SubBlock.h"
+#include "libCZI_Async.h"

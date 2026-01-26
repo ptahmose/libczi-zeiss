@@ -10,6 +10,8 @@
 
 namespace libCZI
 {
+    class IMemoryBlock;
+
     /// AsyncStatus represents the status of an asynchronous operation.
     enum class AsyncStatus : std::uint8_t
     {
@@ -76,7 +78,7 @@ namespace libCZI
     };
 
     //----------------------------------------------------------------
-     
+
     struct AsyncReadRequestResult
     {
         enum class Status : std::uint8_t
@@ -106,11 +108,11 @@ namespace libCZI
 
     struct AsyncReadRequest
     {
-        std::uint64_t offset;
-        std::uint64_t size;
-        std::shared_ptr<IMemoryBlock> buffer;                           ///< valid until callback fires
+        std::uint64_t offset{ 0 };
+        std::uint64_t size{ 0 };
+        std::shared_ptr<libCZI::IMemoryBlock> buffer;                   ///< valid until callback fires
         std::function<void(const AsyncReadRequestResult&)> callback;    ///< function pointer
-        void* user_data;                                                ///< opaque user pointer
+        void* user_data{nullptr};                                       ///< opaque user pointer
     };
 
     class IAsyncInputStream
@@ -138,7 +140,7 @@ namespace libCZI
     };
 
     //----------------------------------------------------------------
-    
+
     class LIBCZI_API ICZIReaderAsync
     {
     public:
@@ -147,5 +149,7 @@ namespace libCZI
 
         virtual ~ICZIReaderAsync() = default;
     };
+
+    std::shared_ptr<ICZIReaderAsync> CreateCZIReaderAsync();
 
 } // namespace libCZI

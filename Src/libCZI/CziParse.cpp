@@ -5,9 +5,12 @@
 #include "libCZI.h"
 #include "CziParse.h"
 #include "CziStructs.h"
+#include "async_utils.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+
+#include "async_action.h"
 #include "Site.h"
 
 using namespace std;
@@ -49,6 +52,58 @@ using namespace libCZI::detail;
     }
 
     return fileHeaderSegment.data;
+}
+
+/*static*/std::shared_ptr<libCZI::IAsyncOperation<CFileHeaderSegmentData>> CCZIParse::ReadFileHeaderSegmentDataAsync(const std::shared_ptr<libCZI::IAsyncInputStream>& async_input_stream)
+{
+    auto async_operation = make_shared<AsyncOperation<CFileHeaderSegmentData>>(nullptr);
+    AsyncReadRequest request;
+    request.offset = 0;
+    request.size = sizeof(FileHeaderSegment);
+    request.buffer = CreateMemoryBlock((size_t)request.size);
+    request.callback = [buffer = request.buffer, operation = async_operation](const AsyncReadRequestResult& result)->void
+        {
+            switch (result.status)
+            {
+            case AsyncReadRequestResult::Status::Success:
+            {
+                try
+                {
+                    if (result.bytes_read != sizeof(FileHeaderSegment))
+                    {
+                        CCZIParse::ThrowNotEnoughDataRead(0, sizeof(FileHeaderSegment), result.bytes_read);
+                    }
+
+                    FileHeaderSegment fileHeaderSegment;
+                    memcpy(&fileHeaderSegment, buffer->GetPtr(), sizeof(FileHeaderSegment));
+                    ConvertToHostByteOrder::Convert(&fileHeaderSegment);
+                    if (memcmp(fileHeaderSegment.header.Id, CCZIParse::FILEHDRMAGIC, 16) != 0)
+                    {
+                        CCZIParse::ThrowIllegalData(0, "Invalid FileHdr-magic");
+                    }
+
+                    CFileHeaderSegmentData file_header_segment_data{ &fileHeaderSegment.data };
+                    operation->SetResult(file_header_segment_data);
+                }
+                catch (const std::exception& ex)
+                {
+                    operation->SetError(std::current_exception());
+                }
+            }
+            break;
+
+            case AsyncReadRequestResult::Status::Failure:
+                operation->SetError(result.failure_info);
+                break;
+            case AsyncReadRequestResult::Status::Cancelled:
+                operation->SetCanceled();
+                break;
+            }
+        };
+
+    async_input_stream->ReadAsync(request);
+
+    return async_operation;
 }
 
 /*static*/CFileHeaderSegmentData CCZIParse::ReadFileHeaderSegmentData(libCZI::IStream* str)
@@ -579,16 +634,16 @@ using namespace libCZI::detail;
             libCZI::DimensionIndex dim = CCZIParse::DimensionCharToDimensionIndex(subBlkDirDV->DimensionEntries[i].Dimension, 4);
             entry.coordinate.Set(dim, subBlkDirDV->DimensionEntries[i].Start);
 
-            if(options.GetPhysicalDimensionOtherThanMMustHaveSizeOne())
-            { 
+            if (options.GetPhysicalDimensionOtherThanMMustHaveSizeOne())
+            {
                 auto physicalSize = subBlkDirDV->DimensionEntries[i].StoredSize;
-                if(physicalSize != 1)
+                if (physicalSize != 1)
                 {
                     stringstream string_stream;
-                    string_stream 
-                            << "Physical size for dimension '" << Utils::DimensionToChar(dim)
-                            << "' is expected to be 1, but found " << physicalSize
-                            << " (file-offset:" << subBlkDirDV->FilePosition << ").";
+                    string_stream
+                        << "Physical size for dimension '" << Utils::DimensionToChar(dim)
+                        << "' is expected to be 1, but found " << physicalSize
+                        << " (file-offset:" << subBlkDirDV->FilePosition << ").";
                     throw LibCZICZIParseException(string_stream.str().c_str(), LibCZICZIParseException::ErrorCode::NonConformingSubBlockDimensionEntry);
                 }
             }

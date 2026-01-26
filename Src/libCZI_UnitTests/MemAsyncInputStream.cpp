@@ -1,5 +1,9 @@
 #include "MemAsyncInputStream.h"
 
+MemAsyncInputStream::~MemAsyncInputStream()
+{
+}
+
 MemAsyncInputStream::RequestId MemAsyncInputStream::ReadAsync(const libCZI::AsyncReadRequest& request)
 {
     std::uint64_t bytes_actually_read;

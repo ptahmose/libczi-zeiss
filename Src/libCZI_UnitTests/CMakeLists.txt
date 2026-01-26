@@ -53,7 +53,8 @@ ADD_EXECUTABLE(libCZI_UnitTests
 										test_pixels.cpp 
 										"test_AsyncOperation.cpp" 
 										"MemAsyncInputStream.h" 
-										"MemAsyncInputStream.cpp")
+										"MemAsyncInputStream.cpp" 
+										"test_asyncreader.cpp")
 
 TARGET_LINK_LIBRARIES(libCZI_UnitTests PRIVATE libCZIStatic GTest::gtest GTest::gmock)
 set_target_properties(libCZI_UnitTests PROPERTIES CXX_STANDARD 14)

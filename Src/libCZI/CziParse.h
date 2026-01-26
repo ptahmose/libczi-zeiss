@@ -139,6 +139,9 @@ namespace libCZI
             static FileHeaderSegmentData ReadFileHeaderSegment(libCZI::IStream* str);
             static CFileHeaderSegmentData ReadFileHeaderSegmentData(libCZI::IStream* str);
 
+            //static std::shared_ptr<libCZI::IAsyncOperation<FileHeaderSegmentData>> ReadFileHeaderSegmentAsync(libCZI::IAsyncInputStream* async_input_stream);
+            static std::shared_ptr<libCZI::IAsyncOperation<CFileHeaderSegmentData>> ReadFileHeaderSegmentDataAsync(const std::shared_ptr<libCZI::IAsyncInputStream>& async_input_stream);
+
             /// Parse the subblock-directory from the specified stream at the specified offset.
             /// Historically, libCZI did not check whether the elements in the dimensions-entry-list had
             /// a size other than "1" given (for all dimensions other than X and Y). We refer to this as
