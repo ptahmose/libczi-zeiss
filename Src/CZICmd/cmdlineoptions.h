@@ -35,6 +35,8 @@ enum class Command
     ReadWriteCZI,
 
     PlaneScan,
+
+    AsyncTest,
 };
 
 enum class InfoLevel : std::uint32_t

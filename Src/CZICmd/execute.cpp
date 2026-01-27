@@ -7,6 +7,7 @@
 #include "executeBase.h"
 #include "executeCreateCzi.h"
 #include "executePlaneScan.h"
+#include "executeAsyncTest.h"
 #include "inc_libCZI.h"
 #include "SaveBitmap.h"
 #include "utils.h"
@@ -1143,6 +1144,9 @@ bool execute(const CCmdLineOptions& options)
             break;
         case Command::PlaneScan:
             success = executePlaneScan(options);
+            break;
+        case Command::AsyncTest:
+            success = executeAsyncTest(options);
             break;
         default:
             break;

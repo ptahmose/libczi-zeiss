@@ -69,6 +69,8 @@ set (CZICMDSRCFILES
          executePlaneScan.cpp
          executeBase.h
          executeBase.cpp
+         executeAsyncTest.h
+         executeAsyncTest.cpp
          CZIcmd.manifest    # the manifest is needed to allow long paths on windows, see https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd
                             # CMake will merge the manifest with a linker generated one (and ignore it on non-Windows platforms)
          CZIcmd.rc          # the rc file (containing version information, only relevant for Windows)

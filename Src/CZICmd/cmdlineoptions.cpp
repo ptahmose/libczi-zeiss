@@ -540,6 +540,7 @@ CCmdLineOptions::ParseResult CCmdLineOptions::Parse(int argc, char** argv)
         { "ExtractAttachment",                  Command::ExtractAttachment},
         { "CreateCZI",                          Command::CreateCZI },
         { "PlaneScan",                          Command::PlaneScan },
+        { "AsyncTest",                          Command::AsyncTest},
     };
 
     const static PlaneCoordinateValidator plane_coordinate_validator;
@@ -1023,7 +1024,8 @@ bool CCmdLineOptions::CheckArgumentConsistency() const
         return false;
     }
 
-    if (cmd != Command::PrintInformation)
+    if (cmd != Command::PrintInformation &&
+        cmd != Command::AsyncTest)
     {
         auto str = this->MakeOutputFilename(nullptr, nullptr);
         if (str.empty())
