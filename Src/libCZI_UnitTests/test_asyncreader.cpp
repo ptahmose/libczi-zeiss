@@ -4,6 +4,9 @@
 #include "MemAsyncInputStream.h"
 #include "utils.h"
 
+#include <condition_variable>
+#include <mutex>
+
 using namespace libCZI;
 using namespace std;
 
@@ -45,6 +48,25 @@ TEST(TestAsyncReader, ReadCziDocumentOneSubblock4x4Gray8)
     auto test_czi = CreateCziDocumentOneSubblock4x4Gray8();
     auto inStream = make_shared<MemAsyncInputStream>(get<0>(test_czi).get(), get<1>(test_czi));
     auto reader = CreateCZIReaderAsync();
-    reader->Open(inStream);
+    auto async_action = reader->Open(inStream);
 
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool completed = false;
+
+    async_action->SetCompleted([&](IAsyncAction* action)
+        {
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                EXPECT_NO_THROW(action->GetResult());
+                completed = true;
+            }
+
+            cv.notify_one();
+        });
+
+    std::unique_lock<std::mutex> lock(mutex);
+    cv.wait(lock, [&] { return completed; });
+
+    EXPECT_TRUE(completed);
 }

@@ -22,23 +22,32 @@ CZIReaderAsync::~CZIReaderAsync()
 std::shared_ptr<IAsyncAction> CZIReaderAsync::Open(const std::shared_ptr<IAsyncInputStream>& stream)
 {
     auto async_action = std::make_shared<AsyncAction>(nullptr);
+    this->open_state = std::make_unique<OpenOperationState>(async_action);
+
     auto file_header_segment_promise = CCZIParse::ReadFileHeaderSegmentDataAsync(stream);
-    file_header_segment_promise->SetCompleted([async_action, file_header_segment_promise](IAsyncOperation<CFileHeaderSegmentData>* op)
-    {
-        try
+    file_header_segment_promise->SetCompleted([this](IAsyncOperation<CFileHeaderSegmentData>* op)
         {
-            // This will throw if the operation failed.
-            CFileHeaderSegmentData hdrData = file_header_segment_promise->GetResult();
-            // Successfully read the file header segment data.
-            async_action->SetDone();
-        }
-        catch (...)
-        {
-            async_action->SetError(std::current_exception());
-        }
-    });
+            this->OpenHandlerStage1(op);
+        });
 
     return async_action;
+}
+
+void CZIReaderAsync::OpenHandlerStage1(IAsyncOperation<CFileHeaderSegmentData>* async_operation)
+{
+    switch (async_operation->GetStatus())
+    {
+    case AsyncStatus::Completed:
+        this->open_state->file_header_segment_data = async_operation->GetResult();
+        this->open_state->async_action->SetDone();
+        break;
+    case AsyncStatus::Error:
+        this->open_state->async_action->SetError(async_operation->GetException());
+        break;
+    case AsyncStatus::Canceled:
+        this->open_state->async_action->SetCanceled();
+        break;
+    }
 }
 
 std::shared_ptr<IAsyncOperation<std::shared_ptr< ISubBlock>>> CZIReaderAsync::ReadSubBlock(std::uint32_t index)
