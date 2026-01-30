@@ -60,7 +60,7 @@ namespace libCZI
             explicit AsyncStateBase(const std::function<void()>& cancellation_requested);
 
             /// Finalizes an instance of the AsyncStateBase class.
-            virtual ~AsyncStateBase() = default;
+            virtual ~AsyncStateBase();
 
             /// Cancels the operation by invoking the cancellation callback.
             void CancelCore();

@@ -21,11 +21,12 @@ namespace libCZI
                     Done
                 };
 
-                OpenOperationState(std::shared_ptr<AsyncAction> action) : async_action(std::move(action))
+                OpenOperationState(std::shared_ptr<AsyncAction> action, std::shared_ptr<IAsyncInputStream> stream) : async_action(std::move(action)), stream(std::move(stream))
                 {
                 }
 
                 std::shared_ptr<AsyncAction> async_action;
+                std::shared_ptr<IAsyncInputStream> stream;
 
                 Stage stage{Stage::Virgin};
 

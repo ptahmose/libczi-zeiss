@@ -22,7 +22,7 @@ CZIReaderAsync::~CZIReaderAsync()
 std::shared_ptr<IAsyncAction> CZIReaderAsync::Open(const std::shared_ptr<IAsyncInputStream>& stream)
 {
     auto async_action = std::make_shared<AsyncAction>(nullptr);
-    this->open_state = std::make_unique<OpenOperationState>(async_action);
+    this->open_state = std::make_unique<OpenOperationState>(async_action, stream);
 
     auto file_header_segment_promise = CCZIParse::ReadFileHeaderSegmentDataAsync(stream);
     file_header_segment_promise->SetCompleted([this](IAsyncOperation<CFileHeaderSegmentData>* op)
@@ -38,8 +38,21 @@ void CZIReaderAsync::OpenHandlerStage1(IAsyncOperation<CFileHeaderSegmentData>* 
     switch (async_operation->GetStatus())
     {
     case AsyncStatus::Completed:
+    {
         this->open_state->file_header_segment_data = async_operation->GetResult();
-        this->open_state->async_action->SetDone();
+
+        // now, we start stage 2 and 3 (read the sub-block directory and the attachment directory, concurrently)
+        auto read_subblock_directory_promise = CCZIParse::ReadSubBlockDirectoryAsync(
+            this->open_state->stream,
+            this->open_state->file_header_segment_data.GetSubBlockDirectoryPosition(),
+            /*parse_options=*/CCZIParse::SubblockDirectoryParseOptions());
+        read_subblock_directory_promise->SetCompleted([this](IAsyncOperation<CCziSubBlockDirectory>* op)
+            {
+                this->open_state->async_action->SetDone();
+            });
+    }
+        // now, we start stage 2 and 3 (read the sub-block directory and the attachment directory, concurrently)
+        //this->open_state->async_action->SetDone();
         break;
     case AsyncStatus::Error:
         this->open_state->async_action->SetError(async_operation->GetException());

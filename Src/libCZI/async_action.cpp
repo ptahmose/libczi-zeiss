@@ -13,6 +13,10 @@ AsyncStateBase::AsyncStateBase(const std::function<void()>& cancellation_request
 {
 }
 
+AsyncStateBase::~AsyncStateBase()
+{
+}
+
 void AsyncStateBase::CancelCore()
 {
     if (this->async_status_.load(std::memory_order_acquire) != AsyncStatus::Started)

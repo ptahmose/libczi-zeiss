@@ -155,6 +155,8 @@ namespace libCZI
             /// \returns    An in-memory representation of the subblock-directory.
             static CCziSubBlockDirectory ReadSubBlockDirectory(libCZI::IStream* str, std::uint64_t offset, const SubblockDirectoryParseOptions& options);
 
+            static std::shared_ptr<libCZI::IAsyncOperation<CCziSubBlockDirectory>> ReadSubBlockDirectoryAsync(const std::shared_ptr<libCZI::IAsyncInputStream>& async_input_stream, std::uint64_t offset, const SubblockDirectoryParseOptions& options);
+
             static CCziAttachmentsDirectory ReadAttachmentsDirectory(libCZI::IStream* str, std::uint64_t offset);
             static void ReadAttachmentsDirectory(libCZI::IStream* str, std::uint64_t offset, const std::function<void(const CCziAttachmentsDirectoryBase::AttachmentEntry&)>& addFunc, SegmentSizes* segmentSizes);
 
