@@ -56,7 +56,7 @@ namespace libCZI
     class IAsyncOperation : public IAsyncInfo
     {
     public:
-        virtual void SetCompleted(const std::function<void(IAsyncOperation*)>& completed_callback) = 0;
+        virtual void SetCompleted(const std::function<void(const std::shared_ptr<IAsyncOperation>&)>& completed_callback) = 0;
 
         /// Gets the result. This method may only be called once the operation has completed successfully.
         /// If the operation is not in the Completed state, a LibCZIAsyncOperationInvalidStateException is thrown;
@@ -70,7 +70,7 @@ namespace libCZI
     class IAsyncAction : public IAsyncInfo
     {
     public:
-        virtual void SetCompleted(const std::function<void(IAsyncAction*)>& completed_callback) = 0;
+        virtual void SetCompleted(const std::function<void(const std::shared_ptr<IAsyncAction>&)>& completed_callback) = 0;
         /// Validates completion. If the operation is not in the Completed state, a LibCZIAsyncOperationInvalidStateException
         /// is thrown; the original failure exception is not rethrown here (use GetException when status is Error).
         /// Multiple calls are allowed.
@@ -140,13 +140,22 @@ namespace libCZI
     };
 
     //----------------------------------------------------------------
-
-    class LIBCZI_API ICZIReaderAsync
+    
+    class LIBCZI_API ISubBlockRepositoryAsync
     {
     public:
-        virtual std::shared_ptr<IAsyncAction> Open(const std::shared_ptr<IAsyncInputStream>& stream) = 0;
+        virtual SubBlockStatistics GetStatistics() = 0;
+        virtual PyramidStatistics GetPyramidStatistics() = 0;
         virtual std::shared_ptr<IAsyncOperation<std::shared_ptr< ISubBlock>>> ReadSubBlock(std::uint32_t index) = 0;
+        virtual ~ISubBlockRepositoryAsync() = default;
+    };
 
+    class LIBCZI_API ICZIReaderAsync : public ISubBlockRepositoryAsync
+    {
+    public:
+        virtual std::shared_ptr<IAsyncAction> Open(const std::shared_ptr<IAsyncInputStream>& stream, const ICZIReader::OpenOptions* options = nullptr) = 0;
+        
+        virtual FileHeaderInfo GetFileHeaderInfo() = 0;
         virtual ~ICZIReaderAsync() = default;
     };
 

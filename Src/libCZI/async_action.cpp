@@ -154,7 +154,7 @@ AsyncAction::AsyncAction(const std::function<void()>& cancellation_requested)
 {
 }
 
-void AsyncAction::SetCompleted(const std::function<void(libCZI::IAsyncAction*)>& completed_callback)
+void AsyncAction::SetCompleted(const std::function<void(const std::shared_ptr<libCZI::IAsyncAction>&)>& completed_callback)
 {
     if (!completed_callback)
     {
@@ -199,6 +199,6 @@ void AsyncAction::OnNotifyCompleted()
 {
     if (this->completed_callback_)
     {
-        this->completed_callback_(this);
+        this->completed_callback_(shared_from_this());
     }
 }

@@ -54,7 +54,7 @@ TEST(TestAsyncReader, ReadCziDocumentOneSubblock4x4Gray8)
     std::condition_variable cv;
     bool completed = false;
 
-    async_action->SetCompleted([&](IAsyncAction* action)
+    async_action->SetCompleted([&](const std::shared_ptr<IAsyncAction>& action)
         {
             {
                 std::lock_guard<std::mutex> lock(mutex);

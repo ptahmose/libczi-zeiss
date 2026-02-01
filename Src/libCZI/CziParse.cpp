@@ -66,32 +66,32 @@ using namespace libCZI::detail;
             switch (result.status)
             {
             case AsyncReadRequestResult::Status::Success:
+            {
+                try
                 {
-                    try
+                    if (result.bytes_read != sizeof(FileHeaderSegment))
                     {
-                        if (result.bytes_read != sizeof(FileHeaderSegment))
-                        {
-                            CCZIParse::ThrowNotEnoughDataRead(0, sizeof(FileHeaderSegment), result.bytes_read);
-                        }
-
-                        FileHeaderSegment fileHeaderSegment;
-                        memcpy(&fileHeaderSegment, result.buffer->GetPtr(), sizeof(FileHeaderSegment));
-                        ConvertToHostByteOrder::Convert(&fileHeaderSegment);
-                        if (memcmp(fileHeaderSegment.header.Id, CCZIParse::FILEHDRMAGIC, 16) != 0)
-                        {
-                            CCZIParse::ThrowIllegalData(0, "Invalid FileHdr-magic");
-                        }
-
-                        CFileHeaderSegmentData file_header_segment_data{ &fileHeaderSegment.data };
-                        operation->SetResult(file_header_segment_data);
+                        CCZIParse::ThrowNotEnoughDataRead(0, sizeof(FileHeaderSegment), result.bytes_read);
                     }
-                    catch (const std::exception& ex)
+
+                    FileHeaderSegment fileHeaderSegment;
+                    memcpy(&fileHeaderSegment, result.buffer->GetPtr(), sizeof(FileHeaderSegment));
+                    ConvertToHostByteOrder::Convert(&fileHeaderSegment);
+                    if (memcmp(fileHeaderSegment.header.Id, CCZIParse::FILEHDRMAGIC, 16) != 0)
                     {
-                        operation->SetError(std::current_exception());
+                        CCZIParse::ThrowIllegalData(0, "Invalid FileHdr-magic");
                     }
+
+                    CFileHeaderSegmentData file_header_segment_data{ &fileHeaderSegment.data };
+                    operation->SetResult(file_header_segment_data);
                 }
+                catch (const std::exception& ex)
+                {
+                    operation->SetError(std::current_exception());
+                }
+            }
 
-                break;
+            break;
             case AsyncReadRequestResult::Status::Failure:
                 operation->SetError(result.failure_info);
                 break;
@@ -140,109 +140,109 @@ using namespace libCZI::detail;
             switch (result.status)
             {
             case AsyncReadRequestResult::Status::Success:
+            {
+                try
                 {
-                    try
+                    if (result.bytes_read != sizeof(SubBlockDirectorySegment))
                     {
-                        if (result.bytes_read != sizeof(SubBlockDirectorySegment))
+                        CCZIParse::ThrowNotEnoughDataRead(offset, sizeof(SubBlockDirectorySegment), result.bytes_read);
+                    }
+
+                    memcpy(&state->sub_block_directory_segment, result.buffer->GetPtr(), sizeof(SubBlockDirectorySegment));
+                    ConvertToHostByteOrder::Convert(&state->sub_block_directory_segment);
+                    if (memcmp(state->sub_block_directory_segment.header.Id, CCZIParse::SUBBLKDIRMAGIC, 16) != 0)
+                    {
+                        CCZIParse::ThrowIllegalData(offset, "Invalid SubBlkDirectory-magic");
+                    }
+
+                    state->subBlkDirSize = state->sub_block_directory_segment.header.UsedSize;
+                    if (state->subBlkDirSize == 0)
+                    {
+                        // allegedly, "UsedSize" may not be valid in early versions
+                        state->subBlkDirSize = state->sub_block_directory_segment.header.AllocatedSize;
+                    }
+
+                    if (state->subBlkDirSize < sizeof(SubBlockDirectorySegmentData))
+                    {
+                        CCZIParse::ThrowIllegalData(offset, "Invalid SubBlkDirectory-Allocated-Size");
+                    }
+
+                    state->subBlkDirSize -= sizeof(SubBlockDirectorySegmentData);
+
+                    // now read the used-size from stream
+                    AsyncReadRequest request;
+                    request.offset = offset + sizeof(SubBlockDirectorySegment);
+                    request.size = state->subBlkDirSize;
+                    request.buffer = CreateMemoryBlock(request.size);
+                    request.callback = [operation, offset, options, state](const AsyncReadRequestResult& result)->void
                         {
-                            CCZIParse::ThrowNotEnoughDataRead(offset, sizeof(SubBlockDirectorySegment), result.bytes_read);
-                        }
-
-                        memcpy(&state->sub_block_directory_segment, result.buffer->GetPtr(), sizeof(SubBlockDirectorySegment));
-                        ConvertToHostByteOrder::Convert(&state->sub_block_directory_segment);
-                        if (memcmp(state->sub_block_directory_segment.header.Id, CCZIParse::SUBBLKDIRMAGIC, 16) != 0)
-                        {
-                            CCZIParse::ThrowIllegalData(offset, "Invalid SubBlkDirectory-magic");
-                        }
-
-                        state-> subBlkDirSize = state->sub_block_directory_segment.header.UsedSize;
-                        if (state->subBlkDirSize == 0)
-                        {
-                            // allegedly, "UsedSize" may not be valid in early versions
-                            state->subBlkDirSize = state->sub_block_directory_segment.header.AllocatedSize;
-                        }
-
-                        if (state->subBlkDirSize < sizeof(SubBlockDirectorySegmentData))
-                        {
-                            CCZIParse::ThrowIllegalData(offset, "Invalid SubBlkDirectory-Allocated-Size");
-                        }
-
-                        state->subBlkDirSize -= sizeof(SubBlockDirectorySegmentData);
-
-                        // now read the used-size from stream
-                        AsyncReadRequest request;
-                        request.offset = offset + sizeof(SubBlockDirectorySegment);
-                        request.size = state->subBlkDirSize;
-                        request.buffer = CreateMemoryBlock(request.size);
-                        request.callback = [operation, offset, options, state](const AsyncReadRequestResult& result)->void
+                            switch (result.status)
                             {
-                                switch (result.status)
+                            case AsyncReadRequestResult::Status::Success:
+                            {
+                                try
                                 {
-                                case AsyncReadRequestResult::Status::Success:
+                                    if (result.bytes_read != state->subBlkDirSize)
                                     {
-                                        try
-                                        {
-                                            if (result.bytes_read != state->subBlkDirSize)
-                                            {
-                                                CCZIParse::ThrowNotEnoughDataRead(offset + sizeof(SubBlockDirectorySegment), state->subBlkDirSize, result.bytes_read);
-                                            }
-
-                                            CCziSubBlockDirectory subBlkDir;
-                                            uint64_t currentOffset = 0;
-                                            CCZIParse::ParseThroughDirectoryEntries(
-                                                state->sub_block_directory_segment.data.EntryCount,
-                                                [&](int numberOfBytes, void* ptr)->void
-                                                {
-                                                    if (currentOffset + numberOfBytes <= state->subBlkDirSize)
-                                                    {
-                                                        memcpy(ptr, ((char*)result.buffer->GetPtr()) + currentOffset, numberOfBytes);
-                                                        currentOffset += numberOfBytes;
-                                                    }
-                                                    else
-                                                    {
-                                                        CCZIParse::ThrowIllegalData(offset + sizeof(SubBlockDirectorySegment) + currentOffset, "SubBlockDirectory data too small");
-                                                    }
-                                                },
-                                                [&](const SubBlockDirectoryEntryDE* subBlkDirDE, const SubBlockDirectoryEntryDV* subBlkDirDV)->void
-                                                {
-                                                    if (subBlkDirDE != nullptr)
-                                                    {
-                                                        CCZIParse::AddEntryToSubBlockDirectory(subBlkDirDE, [&](const CCziSubBlockDirectoryBase::SubBlkEntry& e)->void {subBlkDir.AddSubBlock(e); });
-                                                    }
-                                                    else if (subBlkDirDV != nullptr)
-                                                    {
-                                                        CCZIParse::AddEntryToSubBlockDirectory(subBlkDirDV, [&](const CCziSubBlockDirectoryBase::SubBlkEntry& e)->void {subBlkDir.AddSubBlock(e); }, options);
-                                                    }
-                                                });
-
-                                            subBlkDir.AddingFinished();
-
-                                            operation->SetResult(subBlkDir);
-                                        }
-                                        catch (const std::exception& ex)
-                                        {
-                                            operation->SetError(std::current_exception());
-                                        }
+                                        CCZIParse::ThrowNotEnoughDataRead(offset + sizeof(SubBlockDirectorySegment), state->subBlkDirSize, result.bytes_read);
                                     }
 
-                                    break;
-                                case AsyncReadRequestResult::Status::Failure:
-                                    operation->SetError(result.failure_info);
-                                    break;
-                                case AsyncReadRequestResult::Status::Cancelled:
-                                    operation->SetCanceled();
-                                    break;
-                                }
-                            };
+                                    CCziSubBlockDirectory subBlkDir;
+                                    uint64_t currentOffset = 0;
+                                    CCZIParse::ParseThroughDirectoryEntries(
+                                        state->sub_block_directory_segment.data.EntryCount,
+                                        [&](int numberOfBytes, void* ptr)->void
+                                        {
+                                    if (currentOffset + numberOfBytes <= state->subBlkDirSize)
+                                    {
+                                        memcpy(ptr, ((char*)result.buffer->GetPtr()) + currentOffset, numberOfBytes);
+                                        currentOffset += numberOfBytes;
+                                    }
+                                    else
+                                    {
+                                        CCZIParse::ThrowIllegalData(offset + sizeof(SubBlockDirectorySegment) + currentOffset, "SubBlockDirectory data too small");
+                                    }
+                                        },
+                                        [&](const SubBlockDirectoryEntryDE* subBlkDirDE, const SubBlockDirectoryEntryDV* subBlkDirDV)->void
+                                        {
+                                    if (subBlkDirDE != nullptr)
+                                    {
+                                        CCZIParse::AddEntryToSubBlockDirectory(subBlkDirDE, [&](const CCziSubBlockDirectoryBase::SubBlkEntry& e)->void {subBlkDir.AddSubBlock(e); });
+                                    }
+                                    else if (subBlkDirDV != nullptr)
+                                    {
+                                        CCZIParse::AddEntryToSubBlockDirectory(subBlkDirDV, [&](const CCziSubBlockDirectoryBase::SubBlkEntry& e)->void {subBlkDir.AddSubBlock(e); }, options);
+                                    }
+                                        });
 
-                        async_input_stream->ReadAsync(request);
-                    }
-                    catch (const std::exception&)
-                    {
-                        operation->SetError(std::current_exception());
-                    }
+                                    subBlkDir.AddingFinished();
+
+                                    operation->SetResult(subBlkDir);
+                                }
+                                catch (const std::exception& ex)
+                                {
+                                    operation->SetError(std::current_exception());
+                                }
+                            }
+
+                            break;
+                            case AsyncReadRequestResult::Status::Failure:
+                                operation->SetError(result.failure_info);
+                                break;
+                            case AsyncReadRequestResult::Status::Cancelled:
+                                operation->SetCanceled();
+                                break;
+                            }
+                        };
+
+                    async_input_stream->ReadAsync(request);
                 }
-                break;
+                catch (const std::exception&)
+                {
+                    operation->SetError(std::current_exception());
+                }
+            }
+            break;
             case AsyncReadRequestResult::Status::Failure:
                 operation->SetError(result.failure_info);
                 break;
@@ -252,9 +252,9 @@ using namespace libCZI::detail;
             }
         };
 
-        async_input_stream->ReadAsync(request);
+    async_input_stream->ReadAsync(request);
 
-        return async_operation;
+    return async_operation;
 }
 
 /*static*/void CCZIParse::ReadSubBlockDirectory(libCZI::IStream* str, std::uint64_t offset, const std::function<void(const CCziSubBlockDirectoryBase::SubBlkEntry&)>& addFunc, const SubblockDirectoryParseOptions& options, SegmentSizes* segmentSizes /*= nullptr*/)
@@ -359,6 +359,123 @@ using namespace libCZI::detail;
     CCziAttachmentsDirectory attDir;
     CCZIParse::ReadAttachmentsDirectory(str, offset, [&](const CCziAttachmentsDirectoryBase::AttachmentEntry& ae)->void {attDir.AddAttachmentEntry(ae); }, nullptr);
     return attDir;
+}
+
+/*static*/std::shared_ptr<libCZI::IAsyncOperation<CCziAttachmentsDirectory>> CCZIParse::ReadAttachmentsDirectoryAsync(const std::shared_ptr<libCZI::IAsyncInputStream>& async_input_stream, std::uint64_t offset)
+{
+    struct State
+    {
+        CCziAttachmentsDirectory attachments_directory_segment;
+        //std::uint64_t subBlkDirSize;
+    };
+
+    shared_ptr<State> state = make_shared<State>();
+    auto async_operation = make_shared<AsyncOperation<CCziAttachmentsDirectory>>(nullptr);
+
+    AsyncReadRequest request;
+    request.offset = offset;
+    request.size = sizeof(AttachmentDirectorySegment);
+    request.buffer = CreateMemoryBlock(request.size);
+    request.callback = [operation = async_operation, async_input_stream, offset, state](const AsyncReadRequestResult& result)->void
+        {
+            switch (result.status)
+            {
+            case AsyncReadRequestResult::Status::Success:
+            {
+                try
+                {
+                    if (result.bytes_read != sizeof(AttachmentDirectorySegment))
+                    {
+                        CCZIParse::ThrowNotEnoughDataRead(offset, sizeof(AttachmentDirectorySegment), result.bytes_read);
+                    }
+
+                    AttachmentDirectorySegment* pAttachmentDirSegment = reinterpret_cast<AttachmentDirectorySegment*>(result.buffer->GetPtr());
+                    ConvertToHostByteOrder::Convert(pAttachmentDirSegment);
+
+                    if (memcmp(pAttachmentDirSegment->header.Id, CCZIParse::ATTACHMENTSDIRMAGC, 16) != 0)
+                    {
+                        CCZIParse::ThrowIllegalData(offset, "Invalid AttachmentDirectory-magic");
+                    }
+
+                    if (pAttachmentDirSegment->data.EntryCount > 0)
+                    {
+                        // now read the AttachmentEntries
+                        const uint64_t attachmentEntriesSize = static_cast<uint64_t>(pAttachmentDirSegment->data.EntryCount) * sizeof(AttachmentEntryA1);
+                        AsyncReadRequest request;
+                        request.offset = offset + sizeof(AttachmentDirectorySegment);
+                        request.size = attachmentEntriesSize;
+                        request.buffer = CreateMemoryBlock((size_t)request.size);
+                        request.callback = [operation, offset, pAttachmentDirSegment, state, attachmentEntriesSize, entry_count= pAttachmentDirSegment->data.EntryCount](const AsyncReadRequestResult& result)->void
+                            {
+                                switch (result.status)
+                                {
+                                case AsyncReadRequestResult::Status::Success:
+                                {
+                                    try
+                                    {
+                                        if (result.bytes_read != attachmentEntriesSize)
+                                        {
+                                            CCZIParse::ThrowNotEnoughDataRead(offset + sizeof(AttachmentDirectorySegment), static_cast<uint64_t>(pAttachmentDirSegment->data.EntryCount) * sizeof(AttachmentEntryA1), result.bytes_read);
+                                        }
+
+                                        for (int i = 0; i < entry_count; ++i)
+                                        {
+                                            AttachmentEntryA1* pSrc = reinterpret_cast<AttachmentEntryA1*>(
+                                                ((char*)result.buffer->GetPtr()) + i * sizeof(AttachmentEntryA1));
+                                            ConvertToHostByteOrder::Convert(pSrc);
+                                            CCziAttachmentsDirectoryBase::AttachmentEntry ae;
+                                            bool b = CheckAttachmentSchemaType(reinterpret_cast<const char*>(&pSrc->SchemaType[0]), 2);
+                                            if (b == false)
+                                            {
+                                                continue;   // TODO: what do we do if we encounter this...?
+                                            }
+
+                                            ae.FilePosition = pSrc->FilePosition;
+                                            ae.ContentGuid = pSrc->ContentGuid;
+                                            memcpy(&ae.ContentFileType[0], &pSrc->ContentFileType[0], sizeof(AttachmentEntryA1::ContentFileType));
+                                            memcpy(&ae.Name[0], &pSrc->Name[0], sizeof(AttachmentEntryA1::Name));
+                                            ae.Name[sizeof(AttachmentEntryA1::Name) - 1] = '\0';
+                                            state->attachments_directory_segment.AddAttachmentEntry(ae);
+                                        }
+
+                                        operation->SetResult(state->attachments_directory_segment);
+                                    }
+                                    catch (const std::exception& ex)
+                                    {
+                                        operation->SetError(std::current_exception());
+                                    }
+
+                                    break;
+                                }
+                                case AsyncReadRequestResult::Status::Failure:
+                                    operation->SetError(result.failure_info);
+                                    break;
+                                case AsyncReadRequestResult::Status::Cancelled:
+                                    operation->SetCanceled();
+                                    break;
+                                }
+                            };
+
+                        async_input_stream->ReadAsync(request);
+                    }
+                    else
+                    {
+                        // no attachment-entries to read
+                        operation->SetResult(state->attachments_directory_segment);
+                    }
+                }
+                catch (const std::exception&)
+                {
+                    operation->SetError(std::current_exception());
+                }
+            }
+            break;
+            }
+        };
+
+    async_input_stream->ReadAsync(request);
+
+    return async_operation;
 }
 
 /*static*/void CCZIParse::ReadAttachmentsDirectory(libCZI::IStream* str, std::uint64_t offset, const std::function<void(const CCziAttachmentsDirectoryBase::AttachmentEntry&)>& addFunc, SegmentSizes* segmentSizes/*= nullptr*/)

@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <functional>
 #include <exception>
+#include <memory>
+#include <utility>
 
 #include "libCZI_Async.h"
 
@@ -91,12 +93,12 @@ namespace libCZI
 
         /// Implementation of the IAsyncAction interface.
         /// Represents an asynchronous action that does not return a value.
-        class AsyncAction : public libCZI::IAsyncAction, public AsyncStateBase
+        class AsyncAction : public libCZI::IAsyncAction, public AsyncStateBase, public std::enable_shared_from_this<AsyncAction>
         {
         private:
             // The callback provided by the consumer.
             // Safe to access only when callback_ready_ == true (seen via acquire load) or if the current thread wrote it.
-            std::function<void(libCZI::IAsyncAction*)> completed_callback_;
+            std::function<void(const std::shared_ptr<libCZI::IAsyncAction>&)> completed_callback_;
 
         public:
             /// Initializes a new instance of the AsyncAction class.
@@ -110,7 +112,7 @@ namespace libCZI
 
             /// Sets the completion callback.
             /// \param completed_callback The callback to be invoked when the operation completes.
-            void SetCompleted(const std::function<void(libCZI::IAsyncAction*)>& completed_callback) override;
+            void SetCompleted(const std::function<void(const std::shared_ptr<libCZI::IAsyncAction>&)>& completed_callback) override;
 
             /// Gets the result of the action.
             /// Since this is a void action, this method only validates that the operation has completed successfully.
@@ -141,10 +143,10 @@ namespace libCZI
         /// Represents an asynchronous operation that returns a value of type TResult.
         /// \tparam TResult The type of the result produced by the operation.
         template <typename TResult>
-        class AsyncOperation : public libCZI::IAsyncOperation<TResult>, public AsyncStateBase
+        class AsyncOperation : public libCZI::IAsyncOperation<TResult>, public AsyncStateBase, public std::enable_shared_from_this<AsyncOperation<TResult>>
         {
         private:
-            std::function<void(libCZI::IAsyncOperation<TResult>*)> completed_callback_;
+            std::function<void(const std::shared_ptr<libCZI::IAsyncOperation<TResult>>&)> completed_callback_;
             TResult result_{};
 
         public:
@@ -166,7 +168,7 @@ namespace libCZI
 
             /// Sets the completion callback.
             /// \param completed_callback The callback to be invoked when the operation completes.
-            void SetCompleted(const std::function<void(libCZI::IAsyncOperation<TResult>*)>& completed_callback) override
+            void SetCompleted(const std::function<void(const std::shared_ptr<libCZI::IAsyncOperation<TResult>>&)>& completed_callback) override
             {
                 if (!completed_callback)
                 {
@@ -239,7 +241,8 @@ namespace libCZI
              {
                  if (this->completed_callback_)
                  {
-                     this->completed_callback_(this);
+                     auto op = std::static_pointer_cast<libCZI::IAsyncOperation<TResult>>(this->shared_from_this());
+                     this->completed_callback_(std::move(op));
                  }
              }
         };

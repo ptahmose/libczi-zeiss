@@ -23,9 +23,9 @@ TEST(AsyncActionTest, Sequential_SetDone_Then_SetCompleted)
 
     // Act 2: SetCompleted (Consumer subscribes)
     bool callbackInvoked = false;
-    asyncAction->SetCompleted([&](IAsyncAction* action) 
+    asyncAction->SetCompleted([&](const std::shared_ptr<IAsyncAction>& action) 
         {
-            EXPECT_EQ(action, asyncAction.get());
+            EXPECT_EQ(action.get(), asyncAction.get());
             callbackInvoked = true;
         });
 
@@ -46,9 +46,9 @@ TEST(AsyncActionTest, Sequential_SetCompleted_Then_SetDone)
 
     // Act 1: SetCompleted (Consumer subscribes)
     bool callbackInvoked = false;
-    asyncAction->SetCompleted([&](IAsyncAction* action) 
+    asyncAction->SetCompleted([&](const std::shared_ptr<IAsyncAction>& action) 
         {
-            EXPECT_EQ(action, asyncAction.get());
+            EXPECT_EQ(action.get(), asyncAction.get());
             callbackInvoked = true;
         });
 
@@ -80,7 +80,7 @@ TEST(AsyncActionTest, Sequential_SetError)
 
     // Verify callback
     bool callbackInvoked = false;
-    asyncAction->SetCompleted([&](IAsyncAction* action) 
+    asyncAction->SetCompleted([&](const std::shared_ptr<IAsyncAction>& action) 
         {
             EXPECT_EQ(action->GetStatus(), AsyncStatus::Error);
             callbackInvoked = true;
@@ -158,8 +158,8 @@ TEST(AsyncActionTest, Double_SetCompleted_Throws)
     /// ensuring that only one callback can be registered.
 
     auto asyncAction = std::make_shared<AsyncAction>(nullptr);
-    asyncAction->SetCompleted([](IAsyncAction*) {});
-    EXPECT_THROW(asyncAction->SetCompleted([](IAsyncAction*) {}), std::logic_error);
+    asyncAction->SetCompleted([](const std::shared_ptr<IAsyncAction>&) {});
+    EXPECT_THROW(asyncAction->SetCompleted([](const std::shared_ptr<IAsyncAction>&) {}), std::logic_error);
 }
 
 TEST(AsyncActionTest, Concurrent_SetDone_And_SetCompleted)
@@ -175,7 +175,7 @@ TEST(AsyncActionTest, Concurrent_SetDone_And_SetCompleted)
 
         std::thread consumerThread([&]() 
             {
-                asyncAction->SetCompleted([&](IAsyncAction* action) 
+                asyncAction->SetCompleted([&](const std::shared_ptr<IAsyncAction>& action) 
                 {
                     ++callbackCount;
                 });
@@ -209,9 +209,9 @@ TEST(AsyncOperationTest, Sequential_SetResult_Then_SetCompleted)
     EXPECT_EQ(asyncOp->GetStatus(), AsyncStatus::Completed);
 
     bool callbackInvoked = false;
-    asyncOp->SetCompleted([&](IAsyncOperation<int>* op)
+    asyncOp->SetCompleted([&](const std::shared_ptr<IAsyncOperation<int>>& op)
         {
-            EXPECT_EQ(op, asyncOp.get());
+            EXPECT_EQ(op.get(), asyncOp.get());
             callbackInvoked = true;
         });
 
@@ -228,9 +228,9 @@ TEST(AsyncOperationTest, Sequential_SetCompleted_Then_SetResult)
     int expectedResult = 123;
 
     bool callbackInvoked = false;
-    asyncOp->SetCompleted([&](IAsyncOperation<int>* op)
+    asyncOp->SetCompleted([&](const std::shared_ptr<IAsyncOperation<int>>& op)
         {
-            EXPECT_EQ(op, asyncOp.get());
+            EXPECT_EQ(op.get(), asyncOp.get());
             callbackInvoked = true;
         });
 
@@ -316,7 +316,7 @@ TEST(AsyncOperationTest, Concurrent_SetResult_And_SetCompleted)
 
         std::thread consumerThread([&]()
             {
-                asyncOp->SetCompleted([&](IAsyncOperation<int>* op)
+                asyncOp->SetCompleted([&](const std::shared_ptr<IAsyncOperation<int>>& op)
                     {
                         ++callbackCount;
                     });
