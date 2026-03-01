@@ -56,7 +56,7 @@ using namespace libCZI::detail;
 
 /*static*/std::shared_ptr<libCZI::IAsyncOperation<CFileHeaderSegmentData>> CCZIParse::ReadFileHeaderSegmentDataAsync(const std::shared_ptr<libCZI::IAsyncInputStream>& async_input_stream)
 {
-    auto async_operation = make_shared<AsyncOperation<CFileHeaderSegmentData>>(nullptr);
+    auto async_operation = make_shared<AsyncOperation<CFileHeaderSegmentData>>();
     AsyncReadRequest request;
     request.offset = 0;
     request.size = sizeof(FileHeaderSegment);
@@ -101,7 +101,11 @@ using namespace libCZI::detail;
             }
         };
 
-    async_input_stream->ReadAsync(request);
+    IAsyncInputStream::RequestId request_id = async_input_stream->ReadAsync(request);
+    async_operation->SetCancellationRequestedCallback([async_input_stream, request_id]()
+        {
+            async_input_stream->Cancel(request_id);
+        });
 
     return async_operation;
 }
@@ -130,7 +134,7 @@ using namespace libCZI::detail;
     };
 
     shared_ptr<State> state = make_shared<State>();
-    auto async_operation = make_shared<AsyncOperation<CCziSubBlockDirectory>>(nullptr);
+    auto async_operation = make_shared<AsyncOperation<CCziSubBlockDirectory>>();
     AsyncReadRequest request;
     request.offset = offset;
     request.size = sizeof(SubBlockDirectorySegment);
@@ -370,7 +374,7 @@ using namespace libCZI::detail;
     };
 
     shared_ptr<State> state = make_shared<State>();
-    auto async_operation = make_shared<AsyncOperation<CCziAttachmentsDirectory>>(nullptr);
+    auto async_operation = make_shared<AsyncOperation<CCziAttachmentsDirectory>>();
 
     AsyncReadRequest request;
     request.offset = offset;

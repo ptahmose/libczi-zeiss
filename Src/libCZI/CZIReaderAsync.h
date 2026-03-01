@@ -32,6 +32,8 @@ namespace libCZI
 
                 Stage stage{Stage::Virgin};
 
+                std::shared_ptr<libCZI::IAsyncOperation<CFileHeaderSegmentData>> read_file_header_segment_operation;
+
                 CFileHeaderSegmentData file_header_segment_data;
 
                 static constexpr std::uint32_t kReadySubblockDir = 0x1;
@@ -67,6 +69,7 @@ namespace libCZI
             void CompleteOpenStage();
 
             void ThrowIfNotOperational();
+            void OpenCancellationHandler();
         };
 
     }

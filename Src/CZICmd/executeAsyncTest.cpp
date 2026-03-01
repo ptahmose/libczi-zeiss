@@ -86,6 +86,8 @@ bool executeAsyncTest(const CCmdLineOptions& options)
     auto reader = CreateCZIReaderAsync();
     auto async_action = reader->Open(async_stream);
 
+    //async_action->Cancel();
+
     std::atomic<bool> completed{ false };
 
     async_action->SetCompleted([&](const std::shared_ptr<IAsyncAction>& action)
@@ -93,11 +95,12 @@ bool executeAsyncTest(const CCmdLineOptions& options)
             completed.store(true, std::memory_order_release);
         });
 
-    while (!completed.load(std::memory_order_acquire))
+    /*while (!completed.load(std::memory_order_acquire))
     {
         // Enter alertable wait state so APC-based I/O completion callbacks can run.
         SleepEx(10, TRUE);
-    }
+    }*/
+    async_action->WaitForCompletion();
 
     auto statístics = reader->GetStatistics();
     PrintStatistics(options, statístics);

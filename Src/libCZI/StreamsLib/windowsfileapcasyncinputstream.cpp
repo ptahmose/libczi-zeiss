@@ -75,6 +75,48 @@ WindowsFileApcAsyncInputStream::~WindowsFileApcAsyncInputStream()
     }
 }
 
+std::uint32_t WindowsFileApcAsyncInputStream::RunLoop(RunMode run_mode)
+{
+    uint32_t events_processed = 0;
+    switch (run_mode)
+    {
+        case RunMode::RunUntilIdle:
+        {
+            // keep processing until there are no more pending I/O completions
+            while (true)
+            {
+                DWORD result = SleepEx(0, TRUE);
+                if (result == WAIT_IO_COMPLETION)
+                {
+                    ++events_processed;
+                }
+                else
+                {
+                    // no more I/O completions are pending
+                    break;
+                }
+            }
+
+            return events_processed;
+        }
+
+        case RunMode::RunOnce:
+        {
+            // process at most one I/O completion
+            DWORD result = SleepEx(INFINITE, TRUE);
+            if (result == WAIT_IO_COMPLETION)
+            {
+                ++events_processed;
+            }
+
+            return events_processed;
+        }
+
+        default:
+            throw std::invalid_argument("Unsupported run mode");
+    }
+}
+
 WindowsFileApcAsyncInputStream::RequestId WindowsFileApcAsyncInputStream::ReadAsync(const AsyncReadRequest& request)
 {
     if (!request.callback)
@@ -189,15 +231,38 @@ void WindowsFileApcAsyncInputStream::Cancel(RequestId request_id)
             throw invalid_argument("Invalid request_id");
         }
 
-        const BOOL ok = CancelIoEx(this->file_handle_, &context->overlapped);
+        // We first check if the operation is still pending by calling GetOverlappedResult with bWait=FALSE.
+        // Note that the OS may list the operation as completed even before the completion routine has been called.
+        DWORD number_of_bytes_transferred;
+        BOOL ok = GetOverlappedResult(this->file_handle_, &context->overlapped, &number_of_bytes_transferred, /*bWait=*/FALSE);
         if (!ok)
         {
-            // We don't want to throw if the operation already completed
-            if (GetLastError() != ERROR_NOT_FOUND)
+            // TODO(JBL): idea - should we enter a critical section here to avoid race conditions?
+            DWORD dw = GetLastError();
+            if (dw == ERROR_IO_INCOMPLETE)
             {
-                throw std::runtime_error("CancelIoEx failed: " + std::to_string(GetLastError()));
+                // operation is still pending, we can proceed to cancel it
+                ok = CancelIoEx(this->file_handle_, &context->overlapped);
+                if (!ok)
+                {
+                    // We don't want to throw if the operation already completed
+                    if (GetLastError() != ERROR_NOT_FOUND)
+                    {
+                        throw std::runtime_error("CancelIoEx failed: " + std::to_string(GetLastError()));
+                    }
+                }
             }
         }
+
+        //ok = CancelIoEx(this->file_handle_, &context->overlapped);
+        //if (!ok)
+        //{
+        //    // We don't want to throw if the operation already completed
+        //    if (GetLastError() != ERROR_NOT_FOUND)
+        //    {
+        //        throw std::runtime_error("CancelIoEx failed: " + std::to_string(GetLastError()));
+        //    }
+        //}
     }
 }
 #endif

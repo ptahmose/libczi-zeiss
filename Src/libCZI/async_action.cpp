@@ -1,6 +1,7 @@
 #include "async_action.h"
 
 #include <stdexcept>
+#include <thread>
 
 using namespace std;
 using namespace libCZI;
@@ -8,8 +9,12 @@ using namespace libCZI::detail;
 
 // AsyncStateBase Implementation
 
-AsyncStateBase::AsyncStateBase(const std::function<void()>& cancellation_requested)
-    : cancellation_requested_(cancellation_requested)
+AsyncStateBase::AsyncStateBase()
+{
+}
+
+AsyncStateBase::AsyncStateBase(std::shared_ptr<libCZI::IEventLoop> event)
+    : event_loop_(std::move(event))
 {
 }
 
@@ -17,16 +22,82 @@ AsyncStateBase::~AsyncStateBase()
 {
 }
 
+void AsyncStateBase::WaitForCompletion()
+{
+    for (;;)
+    {
+        const AsyncStatus status = this->async_status_.load(std::memory_order_acquire);
+        if (status != AsyncStatus::Started)
+        {
+            return;
+        }
+       
+        if (this->event_loop_)
+        {
+            if (this->event_loop_->RunLoop(IEventLoop::RunMode::RunOnce) == 0)
+            {
+                std::this_thread::yield();
+            }
+        }
+    }
+}
+
 void AsyncStateBase::CancelCore()
 {
-    if (this->async_status_.load(std::memory_order_acquire) != AsyncStatus::Started)
+    // Cancellation is a best-effort signal.
+    //
+    // Design goals:
+    // - CancelCore() may be called at any time and from any thread.
+    // - A producer may install the cancellation callback later.
+    // - If CancelCore() happens first, the request is latched and the callback will be invoked when installed.
+    // - The callback is invoked at most once.
+    //
+    // Thread-safety strategy:
+    // - We do not write to a shared std::function directly; std::function is not safe for concurrent access.
+    // - Instead we publish an immutable std::function behind a shared_ptr.
+    // - The shared_ptr itself is published via atomic store/load (C++14 free functions).
+    this->cancel_requested_.store(true, std::memory_order_release);
+
+    auto cb = std::atomic_load_explicit(&this->cancellation_requested_, std::memory_order_acquire);
+    if (!cb)
     {
         return;
     }
 
-    if (this->cancellation_requested_)
+    bool expected = false;
+    if (this->cancel_callback_invoked_.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
     {
-        this->cancellation_requested_();
+        (*cb)();
+    }
+}
+
+void AsyncStateBase::SetCancellationRequestedCallback(std::function<void()> cancellation_requested)
+{
+    // Producer installs the callback exactly once.
+    // If cancellation was already requested, invoke immediately.
+    if (!cancellation_requested)
+    {
+        throw std::invalid_argument("cancellation_requested cannot be null");
+    }
+
+    bool expected = false;
+    if (!this->cancel_callback_set_.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+    {
+        throw LibCZIAsyncOperationInvalidStateException(
+            "SetCancellationRequestedCallback has already been called.",
+            LibCZIAsyncOperationInvalidStateException::ErrorType::InvalidStateTransition);
+    }
+
+    auto cb_ptr = std::make_shared<const std::function<void()>>(std::move(cancellation_requested));
+    std::atomic_store_explicit(&this->cancellation_requested_, cb_ptr, std::memory_order_release);
+
+    if (this->cancel_requested_.load(std::memory_order_acquire))
+    {
+        bool invoke_expected = false;
+        if (this->cancel_callback_invoked_.compare_exchange_strong(invoke_expected, true, std::memory_order_acq_rel))
+        {
+            (*cb_ptr)();
+        }
     }
 }
 
@@ -149,10 +220,7 @@ void AsyncStateBase::NotifyCompletedBase()
 
 // AsyncAction Implementation
 
-AsyncAction::AsyncAction(const std::function<void()>& cancellation_requested)
-    : AsyncStateBase(cancellation_requested)
-{
-}
+AsyncAction::AsyncAction() : AsyncStateBase() {}
 
 void AsyncAction::SetCompleted(const std::function<void(const std::shared_ptr<libCZI::IAsyncAction>&)>& completed_callback)
 {

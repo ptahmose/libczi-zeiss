@@ -32,14 +32,19 @@ namespace libCZI
     {
     public:
         virtual ~IAsyncInfo() = default;
+
         /// Requests cancellation of the operation. This is a best-effort signal: it may be invoked multiple times
         /// and completion may still report any terminal state (Completed, Canceled, Error). No status is returned
         /// directly from this call.
         virtual void Cancel() = 0;
+
         /// Gets the exception if the operation failed.
         /// Throws LibCZIAsyncOperationInvalidStateException when the operation is not in the Error state.
         /// Multiple calls are allowed and will return the same exception pointer when in the Error state.
         virtual AsyncStatus GetStatus() const = 0;
+
+        virtual void WaitForCompletion() = 0;
+
         virtual std::exception_ptr GetException() const = 0;
     };
 
@@ -115,7 +120,27 @@ namespace libCZI
         void* user_data{nullptr};                                       ///< opaque user pointer
     };
 
-    class IAsyncInputStream
+    class IEventLoop
+    {
+    public:
+        enum RunMode
+        {
+            RunUntilIdle,   ///< Runs until there are no more immediate tasks to process.
+            RunOnce,        ///< Runs until one task has been processed. If there are no tasks, returns immediately.
+            //NoWait          ///< Processes only tasks that are already ready to run. Returns immediately.
+        };
+
+        virtual ~IEventLoop() = default;
+
+        /// Posts a task to be executed asynchronously on the event loop thread.
+        /// The task will be executed after the current work (if any) is completed.
+        /// This method is thread-safe and can be called from any thread.
+        ///
+        /// \param task The task to execute.
+        virtual std::uint32_t RunLoop(RunMode run_mode) = 0;
+    };
+
+    class IAsyncInputStream : public IEventLoop
     {
     public:
         typedef std::uint32_t RequestId;

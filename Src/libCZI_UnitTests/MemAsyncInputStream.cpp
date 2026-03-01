@@ -4,6 +4,13 @@ MemAsyncInputStream::~MemAsyncInputStream()
 {
 }
 
+std::uint32_t MemAsyncInputStream::RunLoop(RunMode run_mode)
+{
+    // no-op, as all operations complete synchronously
+    (void)run_mode;
+    return 0;
+}
+
 MemAsyncInputStream::RequestId MemAsyncInputStream::ReadAsync(const libCZI::AsyncReadRequest& request)
 {
     std::uint64_t bytes_actually_read;

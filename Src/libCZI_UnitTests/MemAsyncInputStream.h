@@ -16,6 +16,7 @@ public:
 
     ~MemAsyncInputStream() override;
 
+    std::uint32_t RunLoop(RunMode run_mode) override;
     RequestId ReadAsync(const libCZI::AsyncReadRequest& request) override;
     void Cancel(RequestId request_id) override;
 

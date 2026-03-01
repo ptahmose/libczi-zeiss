@@ -13,7 +13,7 @@ TEST(AsyncActionTest, Sequential_SetDone_Then_SetCompleted)
     /// before the consumer subscribes to the completion callback (SetCompleted).
     /// It ensures that the status is updated correctly and the callback is invoked immediately upon subscription.
 
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
 
     // Act 1: SetDone (Producer finishes)
     asyncAction->SetDone();
@@ -36,13 +36,34 @@ TEST(AsyncActionTest, Sequential_SetDone_Then_SetCompleted)
     asyncAction->GetResult();
 }
 
+TEST(AsyncActionTest, Cancellation_Latched_UntilCallbackSet)
+{
+    auto asyncAction = std::make_shared<AsyncAction>();
+
+    asyncAction->Cancel();
+
+    bool cancelRequested = false;
+    asyncAction->SetCancellationRequestedCallback([&]() { cancelRequested = true; });
+
+    EXPECT_TRUE(cancelRequested);
+}
+
+TEST(AsyncActionTest, CancellationCallback_SetOnce)
+{
+    auto asyncAction = std::make_shared<AsyncAction>();
+    asyncAction->SetCancellationRequestedCallback([]() {});
+    EXPECT_THROW(asyncAction->SetCancellationRequestedCallback([]() {}), LibCZIAsyncOperationInvalidStateException);
+}
+
+using IntAsyncOperation = libCZI::detail::AsyncOperation<int>;
+
 TEST(AsyncActionTest, Sequential_SetCompleted_Then_SetDone)
 {
     /// This test verifies the scenario where the consumer subscribes to the completion callback (SetCompleted)
     /// before the operation completes (SetDone).
     /// It ensures that the callback is invoked only when SetDone is called.
 
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
 
     // Act 1: SetCompleted (Consumer subscribes)
     bool callbackInvoked = false;
@@ -65,13 +86,23 @@ TEST(AsyncActionTest, Sequential_SetCompleted_Then_SetDone)
     asyncAction->GetResult();
 }
 
+TEST(AsyncOperationTest, Cancellation_Latched_UntilCallbackSet)
+{
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
+    asyncOp->Cancel();
+
+    bool cancelRequested = false;
+    asyncOp->SetCancellationRequestedCallback([&]() { cancelRequested = true; });
+    EXPECT_TRUE(cancelRequested);
+}
+
 TEST(AsyncActionTest, Sequential_SetError)
 {
     /// This test verifies that setting an error transitions the operation to the Error state,
     /// invokes the callback, and that GetResult throws the appropriate exception 
     /// while GetException returns the stored exception.
 
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
     auto exception = std::make_exception_ptr(std::runtime_error("Test Error"));
 
     asyncAction->SetError(exception);
@@ -118,10 +149,8 @@ TEST(AsyncActionTest, Sequential_SetCanceled)
     /// It ensures GetResult throws the expected exception for a canceled operation.
 
     bool cancelRequested = false;
-    auto asyncAction = std::make_shared<AsyncAction>([&]() 
-        {
-            cancelRequested = true;
-        });
+    auto asyncAction = std::make_shared<AsyncAction>();
+    asyncAction->SetCancellationRequestedCallback([&]() { cancelRequested = true; });
 
     asyncAction->Cancel();
     EXPECT_TRUE(cancelRequested);
@@ -147,7 +176,7 @@ TEST(AsyncActionTest, Double_SetDone_Throws)
     /// This test verifies that calling SetDone more than once throws an InvalidStateTransition exception,
     /// ensuring the single-transition invariant.
 
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
     asyncAction->SetDone();
     EXPECT_THROW(asyncAction->SetDone(), LibCZIAsyncOperationInvalidStateException);
 }
@@ -157,7 +186,7 @@ TEST(AsyncActionTest, Double_SetCompleted_Throws)
     /// This test verifies that calling SetCompleted more than once throws an exception,
     /// ensuring that only one callback can be registered.
 
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
     asyncAction->SetCompleted([](const std::shared_ptr<IAsyncAction>&) {});
     EXPECT_THROW(asyncAction->SetCompleted([](const std::shared_ptr<IAsyncAction>&) {}), std::logic_error);
 }
@@ -170,7 +199,7 @@ TEST(AsyncActionTest, Concurrent_SetDone_And_SetCompleted)
     // Need to run this many times to try to hit race conditions
     for (int i = 0; i < 1000; ++i)
     {
-        auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+        auto asyncAction = std::make_shared<AsyncAction>();
         std::atomic<int> callbackCount{ 0 };
 
         std::thread consumerThread([&]() 
@@ -194,14 +223,12 @@ TEST(AsyncActionTest, Concurrent_SetDone_And_SetCompleted)
     }
 }
 
-using IntAsyncOperation = libCZI::detail::AsyncOperation<int>;
-
 TEST(AsyncOperationTest, Sequential_SetResult_Then_SetCompleted)
 {
     /// This test verifies the scenario for AsyncOperation<T> where a result is set 
     /// before the consumer subscribes. It checks that the result is correctly stored and retrieved.
 
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
 
     int expectedResult = 42;
     asyncOp->SetResult(expectedResult);
@@ -224,7 +251,7 @@ TEST(AsyncOperationTest, Sequential_SetCompleted_Then_SetResult)
     /// This test verifies the scenario for AsyncOperation<T> where the consumer subscribes 
     /// before the result is set. It checks that the result becomes available upon completion.
 
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
     int expectedResult = 123;
 
     bool callbackInvoked = false;
@@ -249,7 +276,7 @@ TEST(AsyncOperationTest, Sequential_SetError)
     /// This test verifies error handling for AsyncOperation<T>, ensuring correct state transition
     /// and exception reporting when SetError is used.
 
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
     auto exception = std::make_exception_ptr(std::runtime_error("Op Error"));
 
     asyncOp->SetError(exception);
@@ -273,7 +300,8 @@ TEST(AsyncOperationTest, Sequential_SetCanceled)
     /// and exception reporting when SetCanceled is used.
 
     bool cancelRequested = false;
-    auto asyncOp = std::make_shared<IntAsyncOperation>([&]() { cancelRequested = true; });
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
+    asyncOp->SetCancellationRequestedCallback([&]() { cancelRequested = true; });
 
     asyncOp->Cancel();
     EXPECT_TRUE(cancelRequested);
@@ -298,7 +326,7 @@ TEST(AsyncOperationTest, Double_SetResult_Throws)
     /// This test verifies that calling SetResult more than once throws an exception,
     /// ensuring the result is set exactly once.
 
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
     asyncOp->SetResult(1);
     EXPECT_THROW(asyncOp->SetResult(2), LibCZIAsyncOperationInvalidStateException);
 }
@@ -310,7 +338,7 @@ TEST(AsyncOperationTest, Concurrent_SetResult_And_SetCompleted)
 
     for (int i = 0; i < 1000; ++i)
     {
-        auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+        auto asyncOp = std::make_shared<IntAsyncOperation>();
         int expectedResult = i;
         std::atomic<int> callbackCount{ 0 };
 
@@ -339,7 +367,7 @@ TEST(AsyncOperationTest, Concurrent_SetResult_And_SetCompleted)
 TEST(AsyncActionTest, GetException_BeforeCompletion_Throws)
 {
     // Ensure GetException rejects calls while the action is still in Started.
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
 
     EXPECT_THROW(asyncAction->GetException(), LibCZIAsyncOperationInvalidStateException);
 
@@ -356,7 +384,7 @@ TEST(AsyncActionTest, GetException_BeforeCompletion_Throws)
 TEST(AsyncActionTest, GetException_OnCanceled_Throws)
 {
     // Ensure GetException rejects calls once the action was canceled.
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
     asyncAction->SetCanceled();
 
     EXPECT_THROW(asyncAction->GetException(), LibCZIAsyncOperationInvalidStateException);
@@ -374,7 +402,7 @@ TEST(AsyncActionTest, GetException_OnCanceled_Throws)
 TEST(AsyncActionTest, GetException_OnCompleted_Throws)
 {
     // Ensure GetException rejects calls once the action completed successfully.
-    auto asyncAction = std::make_shared<AsyncAction>(nullptr);
+    auto asyncAction = std::make_shared<AsyncAction>();
     asyncAction->SetDone();
 
     EXPECT_THROW(asyncAction->GetException(), LibCZIAsyncOperationInvalidStateException);
@@ -392,7 +420,7 @@ TEST(AsyncActionTest, GetException_OnCompleted_Throws)
 TEST(AsyncOperationTest, GetException_BeforeCompletion_Throws)
 {
     // Ensure GetException rejects calls while the operation is still in Started.
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
 
     EXPECT_THROW(asyncOp->GetException(), LibCZIAsyncOperationInvalidStateException);
 
@@ -409,7 +437,7 @@ TEST(AsyncOperationTest, GetException_BeforeCompletion_Throws)
 TEST(AsyncOperationTest, GetException_OnCanceled_Throws)
 {
     // Ensure GetException rejects calls once the operation was canceled.
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
     asyncOp->SetCanceled();
 
     EXPECT_THROW(asyncOp->GetException(), LibCZIAsyncOperationInvalidStateException);
@@ -427,7 +455,7 @@ TEST(AsyncOperationTest, GetException_OnCanceled_Throws)
 TEST(AsyncOperationTest, GetException_OnCompleted_Throws)
 {
     // Ensure GetException rejects calls once the operation completed successfully.
-    auto asyncOp = std::make_shared<IntAsyncOperation>(nullptr);
+    auto asyncOp = std::make_shared<IntAsyncOperation>();
     asyncOp->SetResult(10);
 
     EXPECT_THROW(asyncOp->GetException(), LibCZIAsyncOperationInvalidStateException);

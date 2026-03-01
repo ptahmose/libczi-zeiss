@@ -37,7 +37,11 @@ namespace libCZI
             explicit WindowsFileApcAsyncInputStream(const wchar_t* filename);
             explicit WindowsFileApcAsyncInputStream(const std::string& filename);
             ~WindowsFileApcAsyncInputStream() override;
-        public: // interface libCZI::IAsyncInputStream
+
+            // interface libCZI::IEventLoop
+            std::uint32_t RunLoop(RunMode run_mode) override;
+
+            // interface libCZI::IAsyncInputStream
             RequestId ReadAsync(const AsyncReadRequest& request) override;
             void Cancel(RequestId request_id) override;
 

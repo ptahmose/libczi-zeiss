@@ -13,27 +13,76 @@ namespace libCZI
 {
     namespace detail
     {
-        /// Base class for implementing asynchronous operations.
-        /// It encapsulates the state management (AsyncStatus), error handling, and cancellation logic
-        /// common to both void-returning actions and result-returning operations.
-        /// Memory ordering rationale:
-        /// - completion_reserved_ is the single-writer guard for status/payload transitions; status stores use
-        ///   memory_order_release and readers use memory_order_acquire.
-        /// - callback_ready_ is release-stored after writing the callback; producers acquire-load it before
-        ///   invoking NotifyCompleted to ensure callback visibility.
-        /// - invoked_ is a once-flag around callback invocation; ordering relies on surrounding acquire/release.
-        /// - seq_cst fences after terminal writes are a conservative barrier to ensure payload/status visibility
-        ///   across threads; keep or remove only with care.
+        /// \brief Base class for implementing asynchronous operations.
+        ///
+        /// This class encapsulates the state management (AsyncStatus), error handling, completion callback
+        /// invocation and cancellation signalling logic common to both void-returning actions and
+        /// result-returning operations.
+        ///
+        /// \par Cancellation model
+        /// - Calling CancelCore() is a best-effort signal only. It does not transition \ref async_status_.
+        /// - A producer may install a cancellation callback later via SetCancellationRequestedCallback().
+        /// - If CancelCore() is called before the callback is installed, the request is latched and the
+        ///   callback will be invoked immediately when it is later installed.
+        /// - The cancellation callback is invoked at most once.
+        ///
+        /// \par Thread-safety
+        /// - CancelCore() may run concurrently with SetCancellationRequestedCallback() and with all completion
+        ///   related producer/consumer calls.
+        /// - To avoid data races on \c std::function, the cancellation callback is published as an immutable
+        ///   heap object behind a \c std::shared_ptr. Publication uses \c std::atomic_store/_load for shared_ptr
+        ///   (available as free functions in C++11/14).
+        ///
+        /// \par Memory-ordering rationale (completion)
+        /// - \ref completion_reserved_ is the single-writer guard for status/payload transitions; status stores
+        ///   use \c memory_order_release and readers use \c memory_order_acquire.
+        /// - \ref callback_ready_ is release-stored after writing the callback; producers acquire-load it before
+        ///   invoking NotifyCompletedBase() to ensure callback visibility.
+        /// - \ref invoked_ is a once-flag around callback invocation.
+        /// - \c seq_cst fences after terminal writes are a conservative barrier to ensure payload/status
+        ///   visibility across threads.
+        ///
+        /// \par Memory-ordering rationale (cancellation)
+        /// - \ref cancel_requested_ is a latch set by CancelCore(). The producer checks it when installing the
+        ///   callback.
+        /// - \ref cancellation_requested_ is published with release-store and read with acquire-load.
+        /// - \ref cancel_callback_invoked_ is the cross-thread once-flag that ensures the callback is only
+        ///   invoked once, regardless of whether CancelCore() or SetCancellationRequestedCallback() wins the
+        ///   race.
         class AsyncStateBase
         {
+        private:
+            std::shared_ptr<libCZI::IEventLoop> event_loop_;
         protected:
-            // Represents the state of the operation (Started, Completed, Canceled, Error).
-            // Transitions are guarded by completion_reserved_ to ensure single-writer semantics.
+            /// \brief Represents the state of the operation (Started, Completed, Canceled, Error).
+            ///
+            /// Transitions are guarded by \ref completion_reserved_ to ensure single-writer semantics.
             std::atomic<libCZI::AsyncStatus> async_status_{ libCZI::AsyncStatus::Started };
 
-            // Callback invoked when cancellation is requested by the consumer (Cancel/CancelCore).
-            // Provided by the producer to propagate cancellation intent to the underlying operation.
-            std::function<void()> cancellation_requested_;
+            /// \brief Cancellation callback published by the producer.
+            ///
+            /// This points to an immutable \c std::function object allocated by the producer at the time
+            /// SetCancellationRequestedCallback() is called.
+            ///
+            /// The indirection is used to provide thread-safe publication without locks: \c std::function is
+            /// not safe for concurrent read/write, but publishing a fully-constructed function behind a
+            /// \c std::shared_ptr is safe when the pointer itself is published via atomic store/load.
+            std::shared_ptr<const std::function<void()>> cancellation_requested_;
+
+            /// \brief Latches whether cancellation has been requested.
+            ///
+            /// Set to true by CancelCore(). If the producer installs the cancellation callback afterwards,
+            /// it will be invoked immediately.
+            std::atomic<bool> cancel_requested_{ false };
+
+            /// \brief Ensures the cancellation callback is invoked at most once.
+            ///
+            /// Either CancelCore() or SetCancellationRequestedCallback() may attempt to invoke the callback,
+            /// depending on timing. This flag is the cross-thread once-guard.
+            std::atomic<bool> cancel_callback_invoked_{ false };
+
+            /// \brief Ensures the cancellation callback can only be set once.
+            std::atomic<bool> cancel_callback_set_{ false };
 
             // Stores exception information if the operation fails.
             // Protected by completion_reserved_ during write; safe to read if async_status_ == Error.
@@ -57,14 +106,42 @@ namespace libCZI
             virtual void OnNotifyCompleted() = 0;
 
         public:
-            /// Initializes a new instance of the AsyncStateBase class.
-            /// \param cancellation_requested The function to invoke when cancellation is requested.
-            explicit AsyncStateBase(const std::function<void()>& cancellation_requested);
+            /// \brief Initializes a new instance.
+            ///
+            /// After construction, the cancellation callback is not installed. Producers should call
+            /// SetCancellationRequestedCallback() exactly once.
+            AsyncStateBase();
+
+            AsyncStateBase(std::shared_ptr<libCZI::IEventLoop> event);
+
+            /// \brief Installs the cancellation callback (producer API).
+            ///
+            /// This method may be called after construction and it can only be called once.
+            ///
+            /// \param cancellation_requested The callback to invoke when cancellation is requested.
+            ///        The callback must be non-empty.
+            ///
+            /// \throws std::invalid_argument
+            ///         If \p cancellation_requested is empty.
+            /// \throws LibCZIAsyncOperationInvalidStateException
+            ///         If called more than once.
+            ///
+            /// \note If CancelCore() has already been called, this method will invoke the callback
+            /// immediately (exactly once), on the calling thread.
+            void SetCancellationRequestedCallback(std::function<void()> cancellation_requested);
 
             /// Finalizes an instance of the AsyncStateBase class.
             virtual ~AsyncStateBase();
 
-            /// Cancels the operation by invoking the cancellation callback.
+            /// \brief Requests cancellation (consumer API).
+            ///
+            /// This method is best-effort and may be called multiple times.
+            ///
+            /// - The cancellation request is latched via \ref cancel_requested_.
+            /// - If the cancellation callback is already installed and has not yet been invoked, it will be
+            ///   invoked (at most once).
+            /// - If the cancellation callback is installed later, it will be invoked immediately at
+            ///   installation time.
             void CancelCore();
 
             /// Gets the current status of the operation.
@@ -75,14 +152,27 @@ namespace libCZI
             /// \return The exception pointer, or null if no error occurred.
             std::exception_ptr GetExceptionCore() const;
 
-            /// Transitions the operation to the Canceled state.
-            /// This should be called by the producer when the operation is canceled.
+            /// \brief Transitions the operation to the Canceled state (producer API).
+            ///
+            /// This method completes the operation with status Canceled.
+            /// If the completion callback was already registered by the consumer, it will be invoked.
+            ///
+            /// \throws LibCZIAsyncOperationInvalidStateException
+            ///         If the operation has already transitioned out of Started.
             void SetCanceled();
 
-            /// Transitions the operation to the Error state.
-            /// This should be called by the producer when the operation fails.
+            /// \brief Transitions the operation to the Error state (producer API).
+            ///
+            /// Stores the provided exception pointer and completes the operation with status Error.
+            /// If the completion callback was already registered by the consumer, it will be invoked.
+            ///
             /// \param exception_ptr The exception indicating the failure.
+            ///
+            /// \throws LibCZIAsyncOperationInvalidStateException
+            ///         If the operation has already transitioned out of Started.
             void SetError(std::exception_ptr exception_ptr);
+
+            void WaitForCompletion();
 
         protected:
             void SetCompletedPrepare();
@@ -102,8 +192,9 @@ namespace libCZI
 
         public:
             /// Initializes a new instance of the AsyncAction class.
-            /// \param cancellation_requested The function to invoke when cancellation is requested.
-            explicit AsyncAction(const std::function<void()>& cancellation_requested);
+            AsyncAction();
+            
+            AsyncAction(std::shared_ptr<libCZI::IEventLoop> event) : AsyncStateBase(event) {};
 
             // Forward IAsyncInfo methods to AsyncStateBase
             void Cancel() override { this->CancelCore(); }
@@ -134,6 +225,8 @@ namespace libCZI
             // So we can expose them directly from base via using or wrapper.
             using AsyncStateBase::SetCanceled;
             using AsyncStateBase::SetError;
+            
+            void WaitForCompletion() override { AsyncStateBase::WaitForCompletion(); }
 
         protected:
             void OnNotifyCompleted() override;
@@ -151,11 +244,9 @@ namespace libCZI
 
         public:
             /// Initializes a new instance of the AsyncOperation class.
-            /// \param cancellation_requested The function to invoke when cancellation is requested.
-            explicit AsyncOperation(const std::function<void()>& cancellation_requested)
-                : AsyncStateBase(cancellation_requested)
-            {
-            }
+            AsyncOperation() = default;
+
+            AsyncOperation(std::shared_ptr<libCZI::IEventLoop> event) : AsyncStateBase(event) {};
 
             // Forward IAsyncInfo methods
             void Cancel() override { this->CancelCore(); }
@@ -165,6 +256,8 @@ namespace libCZI
             // Expose SetCanceled/SetError for producer
             using AsyncStateBase::SetCanceled;
             using AsyncStateBase::SetError;
+
+            void WaitForCompletion() override { AsyncStateBase::WaitForCompletion(); }
 
             /// Sets the completion callback.
             /// \param completed_callback The callback to be invoked when the operation completes.

@@ -25,7 +25,7 @@ std::shared_ptr<IAsyncAction> CZIReaderAsync::Open(const std::shared_ptr<IAsyncI
     if (options == nullptr)
     {
         constexpr auto default_options = ICZIReader::OpenOptions{};
-        return CZIReaderAsync::Open(stream, &default_options);
+        return this->CZIReaderAsync::Open(stream, &default_options);
     }
 
     // store state derived from options
@@ -43,11 +43,12 @@ std::shared_ptr<IAsyncAction> CZIReaderAsync::Open(const std::shared_ptr<IAsyncI
     this->sub_block_directory_info_policy_ = options->subBlockDirectoryInfoPolicy;
 
     // then, start the asynchronous open operation
-    auto async_action = std::make_shared<AsyncAction>(nullptr);
+    auto async_action = std::make_shared<AsyncAction>(stream);
+    async_action->SetCancellationRequestedCallback([this]() { this->OpenCancellationHandler(); });
     this->open_state = std::make_unique<OpenOperationState>(async_action, stream);
 
-    auto file_header_segment_promise = CCZIParse::ReadFileHeaderSegmentDataAsync(stream);
-    file_header_segment_promise->SetCompleted([this](const shared_ptr<IAsyncOperation<CFileHeaderSegmentData>>& op)
+    this->open_state->read_file_header_segment_operation = CCZIParse::ReadFileHeaderSegmentDataAsync(stream);
+    this->open_state->read_file_header_segment_operation->SetCompleted([this](const shared_ptr<IAsyncOperation<CFileHeaderSegmentData>>& op)
         {
             this->OpenHandlerStage1(op);
         });
@@ -190,4 +191,22 @@ void CZIReaderAsync::ThrowIfNotOperational()
 {
     this->ThrowIfNotOperational();
     return this->subBlkDir_.GetPyramidStatistics();
+}
+
+void CZIReaderAsync::OpenCancellationHandler()
+{
+    if (this->open_state->async_action)
+    {
+        this->open_state->read_file_header_segment_operation->Cancel();
+    }
+
+    if (this->open_state->read_file_header_segment_operation)
+    {
+        this->open_state->read_file_header_segment_operation->Cancel();
+    }
+
+    if (this->open_state->read_subblock_directory_operation)
+    {
+        this->open_state->read_subblock_directory_operation->Cancel();
+    }
 }
