@@ -581,4 +581,28 @@ namespace libCZI
             return false;
         }
     };
+
+    class LIBCZI_API CompressionHeaderHelper
+    {
+    public:
+        enum class HeaderChunkId : uint16_t
+        {
+            EndOfHeader = 0,
+            ChunkSizes = 1,
+            CompressionMethod = 2,
+            DecompressedSizes = 3,
+            Preprocessing = 4,
+        };
+
+        struct CompressionHeaderChunk
+        {
+            uint16_t chunkId;
+            uint32_t chunkSize;
+            const void* chunkPayload;
+            size_t chunkPayloadSize;
+        };
+
+        static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback);
+        static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
+    };
 }

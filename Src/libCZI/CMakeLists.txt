@@ -131,6 +131,7 @@ set(LIBCZISRCFILES
             SubblockAttachmentAccessor.cpp
             BitmapOperationsBitonal.h
             BitmapOperationsBitonal.cpp
+            chunkedCompress.cpp
 )
 
 # prepare the configuration-file "libCZI_Config.h"
