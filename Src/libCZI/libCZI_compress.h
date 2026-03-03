@@ -616,11 +616,36 @@ namespace libCZI
             std::uint8_t hiLoBytePackingApplied;
 
             std::vector<std::uint32_t> chunkSizes;
+
+            /// This describes the uncompressed sizes of the data for each chunk. 
+            /// The first value is the uncompressed size of all data chunks but the last, and the second value is the uncompressed size of the last chunk. 
+            /// (Note that we here are assuming that all the sizes but the last are the same!).
+            /// If the last chunk has the same uncompressed size as the other chunks or if there is only one chunk, then the second value is zero 
+            /// (and the first value gives the uncompressed size of all chunks).
             std::tuple<std::uint32_t, std::uint32_t> uncompressedSizes;
         };
 
         static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback);
         static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
         static size_t CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfo& headerInfo);
+
+        /// Information used to determine the maximum size of a compression header.
+        /// All fields must be set to valid values. The number_of_chunks field must be greater than 1.
+        struct HeaderInfoForMaxSizeDetermination
+        {
+            Codec codec;
+            std::uint8_t hiLoBytePackingApplied;
+
+            /// The number of chunks. Must be greater than 1.
+            std::uint32_t number_of_chunks;
+        };
+
+        /// This function determines the maximum size of the compression header for the given header information. The actual size of the
+        ///  compression header for a given set of header information may be smaller than this maximum size, but it will never be larger. 
+        ///
+        /// \param 	headerInfo	Information describing the header.
+        ///
+        /// \returns	The max number of bytes required for constructing a CompressionHeader with 'CreateCompressionHeader'.
+        static size_t DetermineMaxSizeForCompressionHeader(const HeaderInfoForMaxSizeDetermination& headerInfo);
     };
 }
