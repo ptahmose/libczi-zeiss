@@ -582,9 +582,14 @@ namespace libCZI
         }
     };
 
-    class LIBCZI_API CompressionHeaderHelper
+    class LIBCZI_API ChunkedCompressionHeaderHelper
     {
     public:
+        enum class Codec : uint8_t
+        {
+            ZStd = 0,
+            Lz4  = 1,
+        };
         enum class HeaderChunkId : uint16_t
         {
             EndOfHeader = 0,
@@ -602,7 +607,20 @@ namespace libCZI
             size_t chunkPayloadSize;
         };
 
+        struct HeaderInfo
+        {
+            Codec codec;
+
+            /// This flag indicates whether the "hi-lo byte packing" preprocessing is applied to the data before compression.
+            /// 0 means "no hi-lo byte packing", 1 means "hi-lo byte packing applied", everything else means: unspecified.
+            std::uint8_t hiLoBytePackingApplied;
+
+            std::vector<std::uint32_t> chunkSizes;
+            std::tuple<std::uint32_t, std::uint32_t> uncompressedSizes;
+        };
+
         static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback);
         static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
+        static size_t CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfo& headerInfo);
     };
 }
