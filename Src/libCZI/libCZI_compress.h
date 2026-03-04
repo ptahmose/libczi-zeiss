@@ -627,6 +627,18 @@ namespace libCZI
 
         static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback);
         static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
+
+        /// Creates a chunked-compression-header for the given header information. The created header is written to the memory pointed to by 
+        /// 'destination', and the size of the created header is returned. The required size of the destination buffer is in general not known (and not knowable) beforehand,
+        /// but it is guaranteed that the required size is less or equal to the value returned by 'DetermineMaxSizeForCompressionHeader' for the same header information.
+        /// If the specified destination buffer size is insufficient, then this method throws an exception (of type runtime_error). All other error conditions 
+        /// (like e.g. invalid arguments) also result in an exception being thrown.
+        ///
+        /// \param [in,out]	destination	   	The pointer to the memory where the created header is written to. This argument must not be null.
+        /// \param 		   	sizeDestination	The size of the memory block pointed to by 'destination' in bytes.
+        /// \param 		   	headerInfo	   	Information describing the header.
+        ///
+        /// \returns	The size of the compression header written to the memory pointed to by 'destination' in bytes.
         static size_t CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfo& headerInfo);
 
         /// Information used to determine the maximum size of a compression header.

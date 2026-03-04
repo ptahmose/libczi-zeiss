@@ -288,6 +288,11 @@ size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const vo
 
 size_t libCZI::ChunkedCompressionHeaderHelper::CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfo& headerInfo)
 {
+    if (destination == nullptr)
+    {
+        throw invalid_argument("destination must not be null");
+    }
+
     uint8_t* p = static_cast<uint8_t*>(destination);
     size_t offset = 0;
 
