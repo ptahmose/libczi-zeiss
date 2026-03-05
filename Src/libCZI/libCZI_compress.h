@@ -587,9 +587,11 @@ namespace libCZI
     public:
         enum class Codec : uint8_t
         {
+            Invalid = 0xff,
             ZStd = 0,
             Lz4  = 1,
         };
+
         enum class HeaderChunkId : uint16_t
         {
             EndOfHeader = 0,
@@ -601,13 +603,16 @@ namespace libCZI
 
         struct CompressionHeaderChunk
         {
-            uint16_t chunkId;
-            uint32_t chunkSize;
+            std::uint16_t chunkId;
+            std::uint32_t chunkSize;
             const void* chunkPayload;
             size_t chunkPayloadSize;
         };
 
-        struct HeaderInfo
+        /// This struct defines the parameters to be stored in the chunked-compression headers for use when
+        /// creating a compression header. Note that only the case of "all uncompressed chunk sizes but the last
+        /// one" is currently supported.
+        struct HeaderInfoForCreation
         {
             Codec codec;
 
@@ -625,8 +630,22 @@ namespace libCZI
             std::tuple<std::uint32_t, std::uint32_t> uncompressedSizes;
         };
 
-        static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback);
+        struct HeaderInfo
+        {
+            struct ChunkInfo
+            {
+                std::uint32_t compressedSize;
+                std::uint32_t uncompressedSize;
+            };
+
+            Codec codec;
+            bool hiLoBytePackingApplied;
+            std::vector<ChunkInfo> chunks;
+        };
+
+        static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback, size_t* bytes_consumed);
         static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
+        static std::tuple<size_t, HeaderInfo> ParseCompressionHeader(const void* data, size_t sizeData);
 
         /// Creates a chunked-compression-header for the given header information. The created header is written to the memory pointed to by 
         /// 'destination', and the size of the created header is returned. The required size of the destination buffer is in general not known (and not knowable) beforehand,
@@ -639,7 +658,7 @@ namespace libCZI
         /// \param 		   	headerInfo	   	Information describing the header.
         ///
         /// \returns	The size of the compression header written to the memory pointed to by 'destination' in bytes.
-        static size_t CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfo& headerInfo);
+        static size_t CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfoForCreation& headerInfo);
 
         /// Information used to determine the maximum size of a compression header.
         /// All fields must be set to valid values. The number_of_chunks field must be greater than 1.

@@ -39,6 +39,7 @@ namespace
         {
             throw invalid_argument("sizeData must be at least 2 when the first byte indicates that more bytes follow");
         }
+
         return { value | (static_cast<std::uint16_t>(p[1]) << 7), 2 };
     }
 
@@ -86,6 +87,64 @@ namespace
         value |= static_cast<std::uint32_t>(p[2]) << 14;
         return { value, 3 };
     }
+
+    /// Parse a 4 byte varint from the given data. The encoding is "MSB varint encoding" (cf. here https://techoverflow.net/2013/01/25/efficiently-encoding-variable-length-integers-in-cc/ 
+    /// or https://developpaper.com/explain-the-principle-of-varint-coding-in-detail/):
+    ///
+    /// \exception	invalid_argument	Thrown when an invalid argument error condition occurs.
+    ///
+    /// \param 	data		The data.
+    /// \param 	sizeData	Information describing the size.
+    ///
+    /// \returns	A tuple, where the first element is the parsed value, and the second element is the number of bytes consumed from the input data.
+    tuple<uint32_t, size_t> Parse4ByteVarInt(const void* data, size_t sizeData)
+    {
+        if (sizeData < 1)
+        {
+            throw invalid_argument("sizeData must be at least 1");
+        }
+
+        const std::uint8_t* p = static_cast<const std::uint8_t*>(data);
+        std::uint32_t value = p[0] & 0x7F;
+        bool hasMore = (p[0] & 0x80) != 0;
+        if (!hasMore)
+        {
+            return { value, 1 };
+        }
+
+        if (sizeData < 2)
+        {
+            throw invalid_argument("sizeData must be at least 2 when the first byte indicates that more bytes follow");
+        }
+
+        value |= static_cast<std::uint32_t>(p[1] & 0x7F) << 7;
+        hasMore = (p[1] & 0x80) != 0;
+        if (!hasMore)
+        {
+            return { value, 2 };
+        }
+
+        if (sizeData < 3)
+        {
+            throw invalid_argument("sizeData must be at least 3 when the second byte indicates that more bytes follow");
+        }
+
+        value |= static_cast<std::uint32_t>(p[2] & 0x7F) << 14;
+        hasMore = (p[2] & 0x80) != 0;
+        if (!hasMore)
+        {
+            return { value, 3 };
+        }
+
+        if (sizeData < 4)
+        {
+            throw invalid_argument("sizeData must be at least 4 when the third byte indicates that more bytes follow");
+        }
+
+        value |= static_cast<std::uint32_t>(p[3]) << 21;
+        return { value, 4 };
+    }
+
 
     size_t DetermineNumberOfBytesNeededFor4ByteVarInt(uint32_t value)
     {
@@ -256,9 +315,53 @@ namespace
     }
 }
 
-bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback)
+bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback, size_t* bytes_consumed)
 {
-    throw std::logic_error("not implemented yet");
+    if (data == nullptr)
+    {
+        throw invalid_argument("data must not be null");
+    }
+
+    if (callback == nullptr)
+    {
+        throw invalid_argument("callback must not be null");
+    }
+
+    const std::uint8_t* p = static_cast<const std::uint8_t*>(data);
+    size_t offset = 0;
+    for (;;)
+    {
+        const auto id = Parse2ByteVarInt(p + offset, sizeData - offset);
+        offset += get<1>(id);
+        if (get<0>(id) == static_cast<uint16_t>(HeaderChunkId::EndOfHeader))
+        {
+            if (bytes_consumed != nullptr)
+            {
+                *bytes_consumed = offset;
+            }
+
+            return true;
+        }
+
+        const auto chunkSize = Parse3ByteVarInt(p + offset, sizeData - offset);
+        offset += get<1>(chunkSize);
+
+        CompressionHeaderChunk compression_header_chunk;
+        compression_header_chunk.chunkId = get<0>(id);
+        compression_header_chunk.chunkSize = get<0>(chunkSize);
+        compression_header_chunk.chunkPayload = p + offset;
+        compression_header_chunk.chunkPayloadSize = get<0>(chunkSize);
+        const bool b = callback(compression_header_chunk);
+        if (!b)
+        {
+            if (bytes_consumed != nullptr)
+            {
+                *bytes_consumed = offset;
+            }
+
+            return false;
+        }
+    }
 }
 
 size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const void* data, size_t sizeData)
@@ -272,7 +375,7 @@ size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const vo
     size_t offset = 0;
     for (;;)
     {
-        const tuple<uint16_t, size_t> id = Parse2ByteVarInt(p + offset, sizeData);
+        const tuple<uint16_t, size_t> id = Parse2ByteVarInt(p + offset, sizeData - offset);
         offset += get<1>(id);
         if (get<0>(id) == static_cast<uint16_t>(HeaderChunkId::EndOfHeader))
         {
@@ -290,7 +393,7 @@ size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const vo
     }
 }
 
-size_t libCZI::ChunkedCompressionHeaderHelper::CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfo& headerInfo)
+size_t libCZI::ChunkedCompressionHeaderHelper::CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfoForCreation& headerInfo)
 {
     if (destination == nullptr)
     {
@@ -467,4 +570,164 @@ size_t libCZI::ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHea
     maxSize += 1;
 
     return maxSize;
+}
+
+namespace
+{
+    std::vector<std::uint32_t> GetChunkSizesFromHeader(const ChunkedCompressionHeaderHelper::CompressionHeaderChunk& chunk)
+    {
+        std::vector<std::uint32_t> chunk_sizes;
+        size_t i;
+        for (i = 0; i < chunk.chunkPayloadSize;)
+        {
+            const auto value_and_size = Parse3ByteVarInt(static_cast<const uint8_t*>(chunk.chunkPayload) + i, chunk.chunkPayloadSize - i);
+            i += get<1>(value_and_size);
+            chunk_sizes.emplace_back(get<0>(value_and_size));
+        }
+
+        // check that the total size of the chunk sizes matches the chunk payload size exactly (i.e. that there is no "unused" data in the chunk payload)
+        if (i > chunk.chunkPayloadSize)
+        {
+            throw invalid_argument("Invalid chunk sizes header chunk: payload size does not match the sum of the sizes of the encoded chunk sizes.");
+        }
+
+        return  chunk_sizes;
+    }
+
+    std::vector<std::uint32_t> GetUncompressedChunkSizesFromHeader(const ChunkedCompressionHeaderHelper::CompressionHeaderChunk& chunk)
+    {
+        std::vector<std::uint32_t> uncompressed_chunk_sizes;
+        size_t i;
+        for (i = 0; i < chunk.chunkPayloadSize;)
+        {
+            const auto value_and_size = Parse4ByteVarInt(static_cast<const uint8_t*>(chunk.chunkPayload) + i, chunk.chunkPayloadSize - i);
+            i += get<1>(value_and_size);
+            uncompressed_chunk_sizes.emplace_back(get<0>(value_and_size));
+        }
+
+        // check that the total size of the chunk sizes matches the chunk payload size exactly (i.e. that there is no "unused" data in the chunk payload)
+        if (i > chunk.chunkPayloadSize)
+        {
+            throw invalid_argument("Invalid decompressed sizes header chunk: payload size does not match the sum of the sizes of the encoded uncompressed sizes.");
+        }
+
+        return  uncompressed_chunk_sizes;
+    }
+
+    std::vector< ChunkedCompressionHeaderHelper::HeaderInfo::ChunkInfo> GetChunkInfosFromCompressedAndUncompressedChunkSizes(const std::vector<std::uint32_t>& chunk_sizes, const std::vector<std::uint32_t>& uncompressed_chunk_sizes)
+    {
+        const size_t number_of_chunks = chunk_sizes.size();
+        if (number_of_chunks == 0)
+        {
+            throw invalid_argument("At least one chunk size must be specified in the chunk sizes header chunk.");
+        }
+
+        const size_t number_of_uncompressed_sizes = uncompressed_chunk_sizes.size();
+        if (number_of_uncompressed_sizes == 0)
+        {
+            throw invalid_argument("At least one uncompressed size must be specified in the decompressed sizes header chunk.");
+        }
+
+        if (number_of_uncompressed_sizes > number_of_chunks)
+        {
+            throw invalid_argument("Invalid decompressed sizes header chunk: more uncompressed sizes specified than the number of chunks.");
+        }
+
+        // the semantic is: 
+        // * if there is only one uncompressed size, then this applies to all chunks
+        // * if there are two uncompressed sizes, then the first applies to all chunks except the last, and the second applies to the last chunk
+        // * if there are more than two uncompressed sizes, then the sizes are listed in chunk order, and the second-to-last element repeats for all earlier chunks not explicitly listed
+
+        vector<ChunkedCompressionHeaderHelper::HeaderInfo::ChunkInfo> result;
+        result.reserve(number_of_chunks);
+
+        for (size_t i = 0; i < number_of_chunks; ++i)
+        {
+            uint32_t uncompressed_size_for_chunk;
+
+            if (number_of_uncompressed_sizes == 1)
+            {
+                uncompressed_size_for_chunk = uncompressed_chunk_sizes[0];
+            }
+            else
+            {
+                // Values are interpreted as a suffix in chunk order.
+                // The last value applies to the last chunk. If there are chunks before
+                // the explicit suffix, they repeat the second-to-last value.
+                const size_t prefix_count = number_of_chunks - number_of_uncompressed_sizes;
+                if (i < prefix_count)
+                {
+                    uncompressed_size_for_chunk = uncompressed_chunk_sizes[number_of_uncompressed_sizes - 2];
+                }
+                else
+                {
+                    const size_t explicit_index = i - prefix_count;
+                    uncompressed_size_for_chunk = uncompressed_chunk_sizes[explicit_index];
+                }
+            }
+
+            ChunkedCompressionHeaderHelper::HeaderInfo::ChunkInfo chunk_info;
+            chunk_info.compressedSize = chunk_sizes[i];
+            chunk_info.uncompressedSize = uncompressed_size_for_chunk;
+            result.emplace_back(chunk_info);
+        }
+
+        return result;
+    }
+}
+
+std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressionHeaderHelper::ParseCompressionHeader(const void* data, size_t sizeData)
+{
+    std::vector<std::uint32_t> chunk_sizes;
+    std::vector<std::uint32_t> uncompressed_sizes;
+    Codec codec = Codec::Invalid;
+
+    size_t bytes_consumed = 0;
+    ChunkedCompressionHeaderHelper::WalkCompressionHeader(
+        data,
+        sizeData,
+        [&](const CompressionHeaderChunk& chunk) -> bool
+        {
+            switch (chunk.chunkId)
+            {
+            case HeaderChunkId::ChunkSizes:
+                chunk_sizes = GetChunkSizesFromHeader(chunk);
+                break;
+            case HeaderChunkId::DecompressedSizes:
+                uncompressed_sizes = GetUncompressedChunkSizesFromHeader(chunk);
+                break;
+            case HeaderChunkId::CompressionMethod:
+                if (chunk.chunkPayloadSize != 1)
+                {
+                    throw invalid_argument("Invalid compression method header chunk: payload size must be exactly 1 byte.");
+                }
+
+                codec = static_cast<Codec>(*static_cast<const uint8_t*>(chunk.chunkPayload));
+                break;
+            default:
+                throw invalid_argument("Invalid header chunk ID in compression header.");
+            }
+
+            return true;  // continue walking through the header
+        },
+        &bytes_consumed);
+
+    ChunkedCompressionHeaderHelper::HeaderInfo header_info;
+    header_info.chunks = GetChunkInfosFromCompressedAndUncompressedChunkSizes(chunk_sizes, uncompressed_sizes);
+    header_info.hiLoBytePackingApplied = false;  // currently, hi-lo byte packing is not supported, so we always set this to false
+    switch (codec)
+    {
+    case Codec::Invalid:
+        // if the compression method chunk is not present, we assume zstd (which is the default)
+        header_info.codec = Codec::ZStd;
+        break;
+    case Codec::ZStd:
+    case Codec::Lz4:
+        header_info.codec = codec;
+        break;
+    default:
+        throw invalid_argument("Invalid codec specified in compression method header chunk.");
+    }
+
+    return make_tuple(bytes_consumed, header_info);
 }

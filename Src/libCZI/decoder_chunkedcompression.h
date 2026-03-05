@@ -1,0 +1,38 @@
+// SPDX-FileCopyrightText: 2026 Carl Zeiss Microscopy GmbH
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
+#pragma once
+
+#include <memory>
+#include "libCZI_Pixels.h"
+#include "libCZI_Site.h"
+
+namespace libCZI
+{
+    namespace detail
+    {
+        /// Implementation of the decoder for chunked compression. Note that this is not a "real" compression scheme, but rather a "meta-scheme"
+        /// which allows to encode some information about the compressed data in a header, and then apply a "real" compression scheme to the data.
+        class CChunkedCompressionDecoder : public libCZI::IDecoder
+        {
+        public:
+            static std::shared_ptr<CChunkedCompressionDecoder> Create();
+
+            /// Passing in a block of chunked-compressed data, decode the image and return a bitmap object.
+            /// This decoder requires that pixelType, width and height are passed in, the parameters must not be nullptr.
+            /// The additional_arguments parameter is currently not used and must be nullptr.
+            /// This decoder requires that pixelType, width and height are passed in, the parameters must not be nullptr.
+            /// 
+            /// \param ptrData              Pointer to a block of memory (which contains the chunked-compressed data).
+            /// \param size                 The size of the memory block pointed by `ptrData`.
+            /// \param pixelType            If non-null, the pixel type of the expected bitmap.
+            /// \param width                If non-null, the width of the expected bitmap.
+            /// \param height               If non-null, the height of the expected bitmap.
+            /// \param additional_arguments If non-null, additional arguments for the decoder.
+            ///
+            /// \return A bitmap object with the decoded data.
+            std::shared_ptr<libCZI::IBitmapData> Decode(const void* ptrData, size_t size, const libCZI::PixelType* pixelType, const std::uint32_t* width, const std::uint32_t* height, const char* additional_arguments) override;
+        };
+    }
+}

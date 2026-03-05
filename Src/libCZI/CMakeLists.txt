@@ -132,6 +132,8 @@ set(LIBCZISRCFILES
             BitmapOperationsBitonal.h
             BitmapOperationsBitonal.cpp
             chunkedCompress.cpp
+            decoder_chunkedcompression.h
+            decoder_chunkedcompression.cpp
 )
 
 # prepare the configuration-file "libCZI_Config.h"
