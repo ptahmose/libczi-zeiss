@@ -395,6 +395,8 @@ size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const vo
         {
             throw invalid_argument("Invalid chunk size in compression header.");
         }
+
+        offset += get<0>(chunkSize);
     }
 }
 

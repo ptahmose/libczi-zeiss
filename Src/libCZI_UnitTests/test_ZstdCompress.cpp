@@ -527,21 +527,69 @@ TEST(ZStdCompress, WalkCompressionHeaderScenario3)
             {
                 switch (compression_header_chunk.chunkId)
                 {
-                    case 0x01:
-                        EXPECT_EQ(compression_header_chunk.chunkSize, 5) << "Unexpected header chunk data size for chunk id 0x01";
-                        EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\x10\x20\x30\x40\x50", 5) == 0) << "Unexpected header chunk data for chunk id 0x01";
-                        break;
-                    case 0x03:
-                        EXPECT_EQ(compression_header_chunk.chunkSize, 2) << "Unexpected header chunk data size for chunk id 0x03";
-                        EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\xe0\xf0", 5) == 0) << "Unexpected header chunk data for chunk id 0x02";
-                        break;
-                    default:
-                        EXPECT_TRUE(false) << "Unexpected header chunk id";
+                case 0x01:
+                    EXPECT_EQ(compression_header_chunk.chunkSize, 5) << "Unexpected header chunk data size for chunk id 0x01";
+                    EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\x10\x20\x30\x40\x50", 5) == 0) << "Unexpected header chunk data for chunk id 0x01";
+                    break;
+                case 0x03:
+                    EXPECT_EQ(compression_header_chunk.chunkSize, 2) << "Unexpected header chunk data size for chunk id 0x03";
+                    EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\xe0\xf0", 5) == 0) << "Unexpected header chunk data for chunk id 0x02";
+                    break;
+                default:
+                    EXPECT_TRUE(false) << "Unexpected header chunk id";
                 }
 
-            return true;
+                return true;
             },
         &bytes_consumed);
     EXPECT_TRUE(b) << "WalkCompressionHeader failed";
     EXPECT_EQ(bytes_consumed, sizeof(headerData)) << "Unexpected number of bytes consumed in WalkCompressionHeader";
+}
+
+TEST(ZStdCompress, GetCompressionHeaderSizeScenario1)
+{
+    static uint8_t headerData[] =
+    {
+        0x01,                          // id #1
+        0x05,                          // size of chunk data #1
+        0x10, 0x20, 0x30, 0x40, 0x50,  // header-chunk data #1
+        0x03,                          // id #2
+        0x02,                          // size of chunk data #2
+        0xe0, 0xf0,                    // header-chunk data #2
+        0x00                           // terminator
+    };
+
+    size_t header_size = ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(headerData, sizeof(headerData));
+    EXPECT_EQ(header_size, sizeof(headerData)) << "Unexpected compression header size";
+}
+
+TEST(ZStdCompress, GetCompressionHeaderSizeScenario2)
+{
+    static uint8_t headerData[] =
+    {
+        0x01,                          // id #1
+        0x05,                          // size of chunk data #1
+        0x10, 0x20, 0x30, 0x40, 0x50,  // header-chunk data #1
+        0x03,                          // id #2
+        0x02,                          // size of chunk data #2
+        0xe0, 0xf0                    // header-chunk data #2
+    };
+
+    EXPECT_THROW(
+        ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(headerData, sizeof(headerData)),
+        exception) << "GetCompressionHeaderSize should have thrown due to missing terminator";
+}
+
+TEST(ZStdCompress, GetCompressionHeaderSizeScenario3)
+{
+    static uint8_t headerData[] =
+    {
+        0x01,                          // id
+        0x05,                          // size of chunk data
+        0x10, 0x20, 0x30, 0x40         // only 4 bytes of header-chunk data #1 (instead of 5)
+    };
+
+    EXPECT_THROW(
+        ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(headerData, sizeof(headerData)),
+        exception) << "GetCompressionHeaderSize should have thrown due to incomplete header chunk data";
 }
