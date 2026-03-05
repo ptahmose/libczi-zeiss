@@ -454,3 +454,29 @@ TEST(ZStdCompress, CompressZStd1Brg48Level2LowByte)
     _testImageCompressDecompressZStd1Param(64, 64, pixelType, &params);
     _testImageCompressDecompressZStd1Param(61, 61, pixelType, &params);
 }
+
+TEST(ZStdCompress, WalkCompressionHeaderScenario1)
+{
+    static uint8_t headerData[] =
+    {
+        0x01,                          // id
+        0x05,                          // size of chunk data
+        0x10, 0x20, 0x30, 0x40, 0x50,  // header-chunk data
+        0x00                           // terminator
+    };
+
+    size_t bytes_consumed = 0;
+    const bool b = ChunkedCompressionHeaderHelper::WalkCompressionHeader(
+        headerData,
+        sizeof(headerData),
+        [](const ChunkedCompressionHeaderHelper::CompressionHeaderChunk& compression_header_chunk) -> bool
+            {
+                EXPECT_EQ(compression_header_chunk.chunkId, 0x01) << "Unexpected header chunk id";
+                EXPECT_EQ(compression_header_chunk.chunkSize, 5) << "Unexpected header chunk data size";
+                EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\x10\x20\x30\x40\x50", 5) == 0) << "Unexpected header chunk data";
+                return true;
+            },
+        &bytes_consumed);
+    EXPECT_TRUE(b) << "WalkCompressionHeader failed";
+    EXPECT_EQ(bytes_consumed, sizeof(headerData)) << "Unexpected number of bytes consumed in WalkCompressionHeader";
+}
