@@ -480,3 +480,68 @@ TEST(ZStdCompress, WalkCompressionHeaderScenario1)
     EXPECT_TRUE(b) << "WalkCompressionHeader failed";
     EXPECT_EQ(bytes_consumed, sizeof(headerData)) << "Unexpected number of bytes consumed in WalkCompressionHeader";
 }
+
+TEST(ZStdCompress, WalkCompressionHeaderScenario2)
+{
+    static uint8_t header_data_no_terminator[] =
+    {
+        0x01,                          // id
+        0x05,                          // size of chunk data
+        0x10, 0x20, 0x30, 0x40, 0x50
+    };
+
+    // now, we pass one byte less than the full header data, and expect WalkCompressionHeader to fail due to missing terminator
+    EXPECT_THROW(
+        ChunkedCompressionHeaderHelper::WalkCompressionHeader(
+        header_data_no_terminator,
+        sizeof(header_data_no_terminator),
+        [](const ChunkedCompressionHeaderHelper::CompressionHeaderChunk& compression_header_chunk) -> bool
+        {
+            EXPECT_EQ(compression_header_chunk.chunkId, 0x01) << "Unexpected header chunk id";
+            EXPECT_EQ(compression_header_chunk.chunkSize, 5) << "Unexpected header chunk data size";
+            EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\x10\x20\x30\x40\x50", 5) == 0) << "Unexpected header chunk data";
+            return true;
+        },
+        nullptr),
+        exception) << "WalkCompressionHeader should have thrown due to missing terminator";
+}
+
+TEST(ZStdCompress, WalkCompressionHeaderScenario3)
+{
+    static uint8_t headerData[] =
+    {
+        0x01,                          // id #1
+        0x05,                          // size of chunk data #1
+        0x10, 0x20, 0x30, 0x40, 0x50,  // header-chunk data #1
+        0x03,                          // id #2
+        0x02,                          // size of chunk data #2
+        0xe0, 0xf0,                    // header-chunk data #2
+        0x00                           // terminator
+    };
+
+    size_t bytes_consumed = 0;
+    const bool b = ChunkedCompressionHeaderHelper::WalkCompressionHeader(
+        headerData,
+        sizeof(headerData),
+        [](const ChunkedCompressionHeaderHelper::CompressionHeaderChunk& compression_header_chunk) -> bool
+            {
+                switch (compression_header_chunk.chunkId)
+                {
+                    case 0x01:
+                        EXPECT_EQ(compression_header_chunk.chunkSize, 5) << "Unexpected header chunk data size for chunk id 0x01";
+                        EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\x10\x20\x30\x40\x50", 5) == 0) << "Unexpected header chunk data for chunk id 0x01";
+                        break;
+                    case 0x03:
+                        EXPECT_EQ(compression_header_chunk.chunkSize, 2) << "Unexpected header chunk data size for chunk id 0x03";
+                        EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\xe0\xf0", 5) == 0) << "Unexpected header chunk data for chunk id 0x02";
+                        break;
+                    default:
+                        EXPECT_TRUE(false) << "Unexpected header chunk id";
+                }
+
+            return true;
+            },
+        &bytes_consumed);
+    EXPECT_TRUE(b) << "WalkCompressionHeader failed";
+    EXPECT_EQ(bytes_consumed, sizeof(headerData)) << "Unexpected number of bytes consumed in WalkCompressionHeader";
+}

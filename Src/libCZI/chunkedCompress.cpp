@@ -344,7 +344,7 @@ bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* d
         }
 
         const auto chunkSize = Parse3ByteVarInt(p + offset, sizeData - offset);
-        offset += get<1>(chunkSize) + get<0>(chunkSize);
+        offset += get<1>(chunkSize);
         if (offset > sizeData)
         {
             throw invalid_argument("Invalid chunk size in compression header.");
@@ -355,6 +355,7 @@ bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* d
         compression_header_chunk.chunkSize = get<0>(chunkSize);
         compression_header_chunk.chunkPayload = p + offset;
         compression_header_chunk.chunkPayloadSize = get<0>(chunkSize);
+        offset += get<0>(chunkSize);
         const bool b = callback(compression_header_chunk);
         if (!b)
         {
