@@ -376,7 +376,7 @@ size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const vo
         throw invalid_argument("sizeData must be at least 1");
     }
 
-    const std::uint8_t* p = static_cast<const std::uint8_t*>(data);
+    const uint8_t* p = static_cast<const uint8_t*>(data);
     size_t offset = 0;
     for (;;)
     {

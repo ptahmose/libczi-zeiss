@@ -593,3 +593,105 @@ TEST(ZStdCompress, GetCompressionHeaderSizeScenario3)
         ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(headerData, sizeof(headerData)),
         exception) << "GetCompressionHeaderSize should have thrown due to incomplete header chunk data";
 }
+
+TEST(ZStdCompress, ParseCompressionHeaderScenario1)
+{
+    static uint8_t headerData[] =
+    {
+        0x01, // id -> CompressedChunkSizes
+        0x03,
+        0x01, 0x02, 0x03,
+        0x03, // id -> DecompressedChunkSizes
+        0x01,
+        0x08,
+        0x00
+    };
+
+    const auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(headerData, sizeof(headerData));
+    EXPECT_EQ(get<0>(size_and_header_info), sizeof(headerData));
+    const auto& header_info = get<1>(size_and_header_info);
+    EXPECT_EQ(header_info.chunks.size(), 3);
+    EXPECT_EQ(header_info.chunks[0].compressedSize, 1);
+    EXPECT_EQ(header_info.chunks[0].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[1].compressedSize, 2);
+    EXPECT_EQ(header_info.chunks[1].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[2].compressedSize, 3);
+    EXPECT_EQ(header_info.chunks[2].uncompressedSize, 8);
+
+    // since the header does not contain a chunk with id = 0x02, the codec should be set to ZStd by default
+    EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::ZStd);
+}
+
+TEST(ZStdCompress, ParseCompressionHeaderScenario2)
+{
+    static uint8_t headerData[] =
+    {
+        0x01, // id -> CompressedChunkSizes
+        0x03,
+        0x01, 0x02, 0x03,
+        0x03, // id -> DecompressedChunkSizes
+        0x02,
+        0x08, 0x09,
+        0x00
+    };
+
+    const auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(headerData, sizeof(headerData));
+    EXPECT_EQ(get<0>(size_and_header_info), sizeof(headerData));
+    const auto& header_info = get<1>(size_and_header_info);
+    EXPECT_EQ(header_info.chunks.size(), 3);
+    EXPECT_EQ(header_info.chunks[0].compressedSize, 1);
+    EXPECT_EQ(header_info.chunks[0].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[1].compressedSize, 2);
+    EXPECT_EQ(header_info.chunks[1].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[2].compressedSize, 3);
+    EXPECT_EQ(header_info.chunks[2].uncompressedSize, 9);
+
+    // since the header does not contain a chunk with id = 0x02, the codec should be set to ZStd by default
+    EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::ZStd);
+}
+
+TEST(ZStdCompress, ParseCompressionHeaderScenario3)
+{
+    static uint8_t headerData[] =
+    {
+        0x01, // id -> CompressedChunkSizes
+        0x03,
+        0x01, 0x02, 0x03,
+        0x03, // id -> DecompressedChunkSizes
+        0x03,
+        0x08, 0x09, 0x0a,
+        0x00
+    };
+
+    const auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(headerData, sizeof(headerData));
+    EXPECT_EQ(get<0>(size_and_header_info), sizeof(headerData));
+    const auto& header_info = get<1>(size_and_header_info);
+    EXPECT_EQ(header_info.chunks.size(), 3);
+    EXPECT_EQ(header_info.chunks[0].compressedSize, 1);
+    EXPECT_EQ(header_info.chunks[0].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[1].compressedSize, 2);
+    EXPECT_EQ(header_info.chunks[1].uncompressedSize, 9);
+    EXPECT_EQ(header_info.chunks[2].compressedSize, 3);
+    EXPECT_EQ(header_info.chunks[2].uncompressedSize, 10);
+
+    // since the header does not contain a chunk with id = 0x02, the codec should be set to ZStd by default
+    EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::ZStd);
+}
+
+TEST(ZStdCompress, ParseCompressionHeaderScenario4)
+{
+    static uint8_t headerData[] =
+    {
+        0x01, // id -> CompressedChunkSizes
+        0x03,
+        0x01, 0x02, 0x03,
+        0x03, // id -> DecompressedChunkSizes
+        0x04,
+        0x08, 0x09, 0x0a, 0x0b,
+        0x00
+    };
+
+    EXPECT_THROW(
+        ChunkedCompressionHeaderHelper::ParseCompressionHeader(headerData, sizeof(headerData)),
+        exception) << "ParseCompressionHeader should have thrown due to mismatch in number of compressed and decompressed chunk sizes";
+}

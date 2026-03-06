@@ -644,7 +644,16 @@ namespace libCZI
         };
 
         static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback, size_t* bytes_consumed);
+
+        /// Parse the chunked-compression header, and return the size of the header (in bytes). If the given data does not contain a valid chunked-compression header,
+        /// then an exception is thrown. Note that only the structure of the header is parsed here, not the semantic of the header content.
+        ///
+        /// \param 	data		Pointer to the data to be parsed.
+        /// \param 	sizeData	The size of the data.
+        ///
+        /// \returns	The size of the header in units of bytes.
         static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
+
         static std::tuple<size_t, HeaderInfo> ParseCompressionHeader(const void* data, size_t sizeData);
 
         /// Creates a chunked-compression-header for the given header information. The created header is written to the memory pointed to by 
