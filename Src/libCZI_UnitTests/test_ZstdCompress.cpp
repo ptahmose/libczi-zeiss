@@ -695,3 +695,60 @@ TEST(ZStdCompress, ParseCompressionHeaderScenario4)
         ChunkedCompressionHeaderHelper::ParseCompressionHeader(headerData, sizeof(headerData)),
         exception) << "ParseCompressionHeader should have thrown due to mismatch in number of compressed and decompressed chunk sizes";
 }
+
+TEST(ZStdCompress, ParseCompressionHeaderScenario5)
+{
+    static uint8_t headerData[] =
+    {
+        0x01, // id -> CompressedChunkSizes
+        0x03,
+        0x01, 0x02, 0x03,
+        0x03, // id -> DecompressedChunkSizes
+        0x02,
+        0x08, 0x09,
+        0x02, // id -> Codec
+        0x01,
+        0x01, // codec value -> LZ4
+        0x00
+    };
+
+    const auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(headerData, sizeof(headerData));
+    EXPECT_EQ(get<0>(size_and_header_info), sizeof(headerData));
+    const auto& header_info = get<1>(size_and_header_info);
+    EXPECT_EQ(header_info.chunks.size(), 3);
+    EXPECT_EQ(header_info.chunks[0].compressedSize, 1);
+    EXPECT_EQ(header_info.chunks[0].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[1].compressedSize, 2);
+    EXPECT_EQ(header_info.chunks[1].uncompressedSize, 8);
+    EXPECT_EQ(header_info.chunks[2].compressedSize, 3);
+    EXPECT_EQ(header_info.chunks[2].uncompressedSize, 9);
+
+    EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::Lz4);
+}
+
+TEST(ZStdCompress, CreateCompressionHeaderScenario1)
+{
+    ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
+    header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
+    header_info_for_creation.hiLoBytePackingApplied = 0xff;
+    header_info_for_creation.chunkSizes = { 4,5,6,7 };
+    header_info_for_creation.uncompressedSizes = { 10,11 };
+
+    uint8_t header_buffer[256] = { 0 };
+    size_t size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(header_buffer, sizeof(header_buffer), header_info_for_creation);
+
+    const auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(header_buffer, sizeof(header_buffer));
+    EXPECT_EQ(size, get<0>(size_and_header_info)) << "Size returned by CreateCompressionHeader does not match actual header size";
+
+    EXPECT_EQ(get<1>(size_and_header_info).chunks.size(), 4) << "Unexpected number of chunks in parsed header info";
+    const auto& header_info = get<1>(size_and_header_info);
+    EXPECT_EQ(header_info.chunks[0].compressedSize, 4);
+    EXPECT_EQ(header_info.chunks[0].uncompressedSize, 10);
+    EXPECT_EQ(header_info.chunks[1].compressedSize, 5);
+    EXPECT_EQ(header_info.chunks[1].uncompressedSize, 10);
+    EXPECT_EQ(header_info.chunks[2].compressedSize, 6);
+    EXPECT_EQ(header_info.chunks[2].uncompressedSize, 10);
+    EXPECT_EQ(header_info.chunks[3].compressedSize, 7);
+    EXPECT_EQ(header_info.chunks[3].uncompressedSize, 11);
+    EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::ZStd);
+}
