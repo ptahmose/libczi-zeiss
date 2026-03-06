@@ -5,6 +5,8 @@
 #pragma once
 
 #include <memory>
+
+#include "libCZI_compress.h"
 #include "libCZI_Pixels.h"
 #include "libCZI_Site.h"
 
@@ -33,6 +35,19 @@ namespace libCZI
             ///
             /// \return A bitmap object with the decoded data.
             std::shared_ptr<libCZI::IBitmapData> Decode(const void* ptrData, size_t size, const libCZI::PixelType* pixelType, const std::uint32_t* width, const std::uint32_t* height, const char* additional_arguments) override;
+
+        private:
+            struct DecodeInformation
+            {
+                libCZI::PixelType pixelType; 
+                std::uint32_t width;
+                std::uint32_t height;
+                const void* ptr_subblock_data;
+                size_t size_subblock_data;
+                std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> chunk_header_info;
+            };
+
+            static std::shared_ptr<libCZI::IBitmapData> DecodeSizeMatchesExactly(const DecodeInformation& decode_information);
         };
     }
 }

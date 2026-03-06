@@ -579,6 +579,15 @@ size_t libCZI::ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHea
     return maxSize;
 }
 
+size_t libCZI::ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(const HeaderInfoForCreation& headerInfo)
+{
+    HeaderInfoForMaxSizeDetermination infoForMaxSizeDetermination;
+    infoForMaxSizeDetermination.codec = headerInfo.codec;
+    infoForMaxSizeDetermination.hiLoBytePackingApplied = headerInfo.hiLoBytePackingApplied;
+    infoForMaxSizeDetermination.number_of_chunks = static_cast<std::uint32_t>(headerInfo.chunkSizes.size());
+    return DetermineMaxSizeForCompressionHeader(infoForMaxSizeDetermination);
+}
+
 namespace
 {
     std::vector<std::uint32_t> GetChunkSizesFromHeader(const ChunkedCompressionHeaderHelper::CompressionHeaderChunk& chunk)

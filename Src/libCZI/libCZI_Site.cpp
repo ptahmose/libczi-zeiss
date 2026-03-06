@@ -9,6 +9,7 @@
 #include <mutex>
 #include <cstdlib>
 #include "bitmapData.h"
+#include "decoder_chunkedcompression.h"
 #include "decoder_wic.h"
 #include "Site.h"
 
@@ -66,6 +67,8 @@ private:
     std::shared_ptr<IDecoder> zstd0decoder;
     std::once_flag  zstd1DecoderInitialized;
     std::shared_ptr<IDecoder> zstd1decoder;
+    std::once_flag  chunkedCompressionDecoderInitialized;
+    std::shared_ptr<IDecoder> chunkedCompressiondecoder;
 public:
     std::shared_ptr<IDecoder> GetDecoder(ImageDecoderType type, const char* arguments) override
     {
@@ -102,113 +105,135 @@ public:
                 });
 
             return this->zstd1decoder;
+        case ImageDecoderType::ChunkedCompression:
+        {
+            std::call_once(chunkedCompressionDecoderInitialized,
+                [this]()
+                {
+                    this->chunkedCompressiondecoder = CChunkedCompressionDecoder::Create();
+                });
+
+            return this->chunkedCompressiondecoder;
+        }
         }
         }
 
         return shared_ptr<IDecoder>();
-    }
-};
+        }
+    };
 #endif
 
-class CSiteImpJxrLib : public CSiteImpBase
-{
-private:
-    std::once_flag  jxrDecoderInitialized;
-    std::shared_ptr<IDecoder> jpgXrdecoder;
-    std::once_flag  zstd0DecoderInitialized;
-    std::shared_ptr<IDecoder> zstd0decoder;
-    std::once_flag  zstd1DecoderInitialized;
-    std::shared_ptr<IDecoder> zstd1decoder;
-public:
-    std::shared_ptr<IDecoder> GetDecoder(ImageDecoderType type, const char* arguments) override
+    class CSiteImpJxrLib : public CSiteImpBase
     {
-        (void)arguments;
+    private:
+        std::once_flag  jxrDecoderInitialized;
+        std::shared_ptr<IDecoder> jpgXrdecoder;
+        std::once_flag  zstd0DecoderInitialized;
+        std::shared_ptr<IDecoder> zstd0decoder;
+        std::once_flag  zstd1DecoderInitialized;
+        std::shared_ptr<IDecoder> zstd1decoder;
+        std::once_flag  chunkedCompressionDecoderInitialized;
+        std::shared_ptr<IDecoder> chunkedCompressiondecoder;
+    public:
+        std::shared_ptr<IDecoder> GetDecoder(ImageDecoderType type, const char* arguments) override
+        {
+            (void)arguments;
 
+            switch (type)
+            {
+            case ImageDecoderType::JPXR_JxrLib:
+            {
+                std::call_once(jxrDecoderInitialized,
+                    [this]()
+                    {
+                        this->jpgXrdecoder = CJxrLibDecoder::Create();
+                    });
+
+                return this->jpgXrdecoder;
+            }
+            case ImageDecoderType::ZStd0:
+            {
+                std::call_once(zstd0DecoderInitialized,
+                    [this]()
+                    {
+                        this->zstd0decoder = CZstd0Decoder::Create();
+                    });
+
+                return this->zstd0decoder;
+            }
+            case ImageDecoderType::ZStd1:
+            {
+                std::call_once(zstd1DecoderInitialized,
+                    [this]()
+                    {
+                        this->zstd1decoder = CZstd1Decoder::Create();
+                    });
+
+                return this->zstd1decoder;
+            }
+            case ImageDecoderType::ChunkedCompression:
+            {
+                std::call_once(chunkedCompressionDecoderInitialized,
+                    [this]()
+                    {
+                            this->chunkedCompressiondecoder = CChunkedCompressionDecoder::Create();
+                    });
+
+                return this->chunkedCompressiondecoder;
+            }
+            }
+
+            return shared_ptr<IDecoder>();
+        }
+    };
+
+#if LIBCZI_WINDOWSAPI_AVAILABLE
+    static CSiteImpWic theWicSite;
+#endif
+    static CSiteImpJxrLib theJxrLibSite;
+
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    static std::once_flag gSite_init;
+    static ISite* g_site = nullptr;
+
+    libCZI::ISite* libCZI::detail::GetSite()
+    {
+        std::call_once(gSite_init,
+            []()
+            {
+                if (g_site == nullptr)
+                {
+                    g_site = libCZI::GetDefaultSiteObject(SiteObjectType::Default);
+                }
+            });
+
+        return g_site;
+    }
+
+    libCZI::ISite* libCZI::GetDefaultSiteObject(SiteObjectType type)
+    {
         switch (type)
         {
-        case ImageDecoderType::JPXR_JxrLib:
-        {
-            std::call_once(jxrDecoderInitialized,
-                [this]()
-                {
-                    this->jpgXrdecoder = CJxrLibDecoder::Create();
-                });
-
-            return this->jpgXrdecoder;
-        }
-        case ImageDecoderType::ZStd0:
-        {
-            std::call_once(zstd0DecoderInitialized,
-                [this]()
-                {
-                    this->zstd0decoder = CZstd0Decoder::Create();
-                });
-
-            return this->zstd0decoder;
-        }
-        case ImageDecoderType::ZStd1:
-        {
-            std::call_once(zstd1DecoderInitialized,
-                [this]()
-                {
-                    this->zstd1decoder = CZstd1Decoder::Create();
-                });
-
-            return this->zstd1decoder;
-        }
-        }
-
-        return shared_ptr<IDecoder>();
-    }
-};
-
 #if LIBCZI_WINDOWSAPI_AVAILABLE
-static CSiteImpWic theWicSite;
+        case SiteObjectType::WithWICDecoder:
+            return &theWicSite;
 #endif
-static CSiteImpJxrLib theJxrLibSite;
+        case SiteObjectType::WithJxrDecoder:
+        case SiteObjectType::Default:
+            return &theJxrLibSite;
+        default:
+            return nullptr;
+        }
+    }
 
-
-///////////////////////////////////////////////////////////////////////////////////////////
-
-static std::once_flag gSite_init;
-static ISite* g_site = nullptr;
-
-libCZI::ISite* libCZI::detail::GetSite()
-{
-    std::call_once(gSite_init,
-        []()
+    void libCZI::SetSiteObject(libCZI::ISite* pSite)
+    {
+        if (g_site != nullptr)
         {
-            if (g_site == nullptr)
-            {
-                g_site = libCZI::GetDefaultSiteObject(SiteObjectType::Default);
-            }
-        });
+            throw std::logic_error("Site was already initialized");
+        }
 
-    return g_site;
-}
-
-libCZI::ISite* libCZI::GetDefaultSiteObject(SiteObjectType type)
-{
-    switch (type)
-    {
-#if LIBCZI_WINDOWSAPI_AVAILABLE
-    case SiteObjectType::WithWICDecoder:
-        return &theWicSite;
-#endif
-    case SiteObjectType::WithJxrDecoder:
-    case SiteObjectType::Default:
-        return &theJxrLibSite;
-    default:
-        return nullptr;
+        g_site = pSite;
     }
-}
-
-void libCZI::SetSiteObject(libCZI::ISite* pSite)
-{
-    if (g_site != nullptr)
-    {
-        throw std::logic_error("Site was already initialized");
-    }
-
-    g_site = pSite;
-}

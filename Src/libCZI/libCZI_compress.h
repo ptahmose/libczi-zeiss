@@ -687,5 +687,15 @@ namespace libCZI
         ///
         /// \returns	The max number of bytes required for constructing a CompressionHeader with 'CreateCompressionHeader'.
         static size_t DetermineMaxSizeForCompressionHeader(const HeaderInfoForMaxSizeDetermination& headerInfo);
+
+        /// Convenience overload of the above function, which takes 'HeaderInfoForCreation' as argument. The required
+        /// information for determining the max size is determined from the given 'HeaderInfoForCreation' argument, and
+        /// in turn the function 'DetermineMaxSizeForCompressionHeader(const HeaderInfoForMaxSizeDetermination& headerInfo)' 
+        /// is called to determine the max size.
+        ///
+        /// \param 	headerInfo	Information describing the header.
+        ///
+        /// \returns	The max number of bytes required for constructing a CompressionHeader with 'CreateCompressionHeader'.
+        static size_t DetermineMaxSizeForCompressionHeader(const HeaderInfoForCreation& headerInfo);
     };
 }

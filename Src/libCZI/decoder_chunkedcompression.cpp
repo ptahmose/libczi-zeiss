@@ -4,9 +4,41 @@
 
 #include "decoder_chunkedcompression.h"
 
+#include "libCZI_compress.h"
+
+#include <numeric>
+#include <stdexcept>
+#include <utility>
+
+#include "bitmapData.h"
+#include <zstd.h>
+#if (ZSTD_VERSION_MAJOR >= 1 && ZSTD_VERSION_MINOR >= 5) 
+#include <zstd_errors.h>
+#else
+#include <common/zstd_errors.h>
+#endif
+
 using namespace std;
 using namespace libCZI;
 using namespace libCZI::detail;
+
+namespace
+{
+    bool CheckIfCompressedChunkSizesAreValid(const std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo>& size_and_header_info, size_t size_of_data)
+    {
+        size_t total_compressed_size = accumulate(
+            get<1>(size_and_header_info).chunks.begin(),
+            get<1>(size_and_header_info).chunks.end(),
+            size_t{ 0 },
+            [](size_t sum, const auto& chunkInfo)
+            {
+                return sum + chunkInfo.compressedSize;
+            });
+
+        // ok, so now "size of chunk-header" and "total compressed size" must add up to the total size of the data
+        return get<0>(size_and_header_info) + total_compressed_size <= size_of_data;
+    }
+}
 
 /*static*/std::shared_ptr<CChunkedCompressionDecoder> CChunkedCompressionDecoder::Create()
 {
@@ -20,5 +52,73 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         throw invalid_argument("pixeltype, width and height must be specified.");
     }
 
+    auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(ptrData, size);
+    const auto& chunks = get<1>(size_and_header_info).chunks;
+    size_t total_size_of_decompressed_data = accumulate(
+        chunks.begin(),
+        chunks.end(),
+        size_t{ 0 },
+        [](size_t sum, const auto& chunk)
+        {
+            return sum + chunk.uncompressedSize;
+        });
 
+    // now - if this size matches the expected size (given by width, height and pixel type), then we can proceed with the decompression, otherwise we
+    //  use the "resolution protocol"
+
+    // calculate the expected size of the uncompressed data
+    size_t stride = *width * static_cast<size_t>(Utils::GetBytesPerPixel(*pixelType));
+    size_t expected_size = *height * stride;
+    if (expected_size == total_size_of_decompressed_data)
+    {
+        // ok, so the reported sizes add up to exactly what is expected
+        DecodeInformation decode_information{ *pixelType, *width, *height, ptrData, size, std::move(size_and_header_info) };
+        return CChunkedCompressionDecoder::DecodeSizeMatchesExactly(decode_information);
+    }
+
+    throw runtime_error("Not yet implemented: The size of the decompressed data does not match the expected size calculated from width, height and pixel type. The resolution protocol is not yet implemented.");
+}
+
+/*static*/std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::DecodeSizeMatchesExactly(const DecodeInformation& decode_information)
+{
+    // first - we check whether the compressed chunk sizes are valid (i.e. that they do not exceed the total size of the data)
+    if (!CheckIfCompressedChunkSizesAreValid(decode_information.chunk_header_info, decode_information.size_subblock_data))
+    {
+        throw runtime_error("The compressed chunk sizes reported in the header do not match the total size of the data.");
+    }
+
+    // calculate the expected size of the uncompressed data
+    const size_t stride = decode_information.width * static_cast<size_t>(Utils::GetBytesPerPixel(decode_information.pixelType));
+    if (stride == 0 || stride > numeric_limits<uint32_t>::max())
+    {
+        throw runtime_error("Invalid stride calculated from width and pixel type.");
+    }
+
+    const size_t expected_size = decode_information.height * stride;
+
+    // note that the cast to uint32_t is safe because we have checked that the stride is not larger than uint32_t::max before
+    auto bitmap = CStdBitmapData::Create(decode_information.pixelType, decode_information.width, decode_information.height, static_cast<uint32_t>(stride));
+
+    // now - decode the chunks, one by one, directly into the bitmap (we can do this because we know that 
+    //   the total size of the decompressed data matches the expected size of the bitmap)
+
+    uint64_t destination_offset = 0;
+    uint64_t source_offset = get<0>(decode_information.chunk_header_info);  // chunk-data starts after the chunk-header, so we start reading from there
+    auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(bitmap);
+
+    for (size_t i = 0; i < get<1>(decode_information.chunk_header_info).chunks.size(); ++i)
+    {
+        const auto& chunk = get<1>(decode_information.chunk_header_info).chunks[i];
+
+        size_t decompressed_size = ZSTD_decompress(
+                                        static_cast<uint8_t*>(bitmap_lock_info.ptrDataRoi) + destination_offset,
+                                        chunk.uncompressedSize,
+                                        static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
+                                        chunk.compressedSize);
+        // TODO(JBL): error-handling...
+        destination_offset += chunk.uncompressedSize;
+        source_offset += chunk.compressedSize;
+    }
+
+    return bitmap;
 }
