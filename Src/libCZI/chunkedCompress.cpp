@@ -544,9 +544,9 @@ size_t libCZI::ChunkedCompressionHeaderHelper::CreateCompressionHeader(void* des
 
 size_t libCZI::ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(const HeaderInfoForMaxSizeDetermination& headerInfo)
 {
-    if (headerInfo.number_of_chunks <= 1)
+    if (headerInfo.number_of_chunks < 1)
     {
-        throw invalid_argument("number_of_chunks must be greater than 1.");
+        throw invalid_argument("number_of_chunks must be greater than 0.");
     }
 
     // For the maximum size, we assume each varint uses its maximum encoding:
