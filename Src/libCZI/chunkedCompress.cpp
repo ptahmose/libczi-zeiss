@@ -704,7 +704,7 @@ std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressio
         sizeData,
         [&](const CompressionHeaderChunk& chunk) -> bool
         {
-            switch (chunk.chunkId)
+            switch (static_cast<ChunkedCompressionHeaderHelper::HeaderChunkId>(chunk.chunkId))
             {
             case HeaderChunkId::ChunkSizes:
                 chunk_sizes = GetChunkSizesFromHeader(chunk);

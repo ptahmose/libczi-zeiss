@@ -585,14 +585,14 @@ namespace libCZI
     class LIBCZI_API ChunkedCompressionHeaderHelper
     {
     public:
-        enum class Codec : uint8_t
+        enum class Codec : std::uint8_t
         {
             Invalid = 0xff,
             ZStd = 0,
             Lz4  = 1,
         };
 
-        enum class HeaderChunkId : uint16_t
+        enum class HeaderChunkId : std::uint16_t
         {
             EndOfHeader = 0,
             ChunkSizes = 1,
