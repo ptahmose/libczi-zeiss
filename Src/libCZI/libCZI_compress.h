@@ -30,6 +30,11 @@ namespace libCZI
         /// gives the best quality (i.e. loss-less compression). This parameter is used with the "jxrlib" compression scheme only.
         /// If value is out-of-range, it will be clipped.
         JXRLIB_QUALITY = 3,
+
+        CHUNKEDCOMPRESSION_MAXCHUNKSIZE = 4, ///< The maximum chunk size (in bytes) to be used for chunked compression (type: uint32). 
+                                             ///< This parameter is used with the "chunked" compression scheme only.
+        CHUNKEDCOMPRESSION_CODEC = 5,        ///< The codec to be used for chunked compression (type: uint8, where the value is interpreted as a Codec enum value). 
+                                             ///< This parameter is used with the "chunked" compression scheme only.
     };
 
     /// Simple variant type used for the compression-parameters-property-bag.
@@ -551,6 +556,40 @@ namespace libCZI
             const ICompressParameters* parameters);
     };
 
+    class LIBCZI_API ChunkedCompress
+    {
+    public:
+        /// Compress the specified bitmap in "chunked-compression"-format. This method will compress the specified source-bitmap according to the "ZEN-chunked-compression-scheme" to a newly allocated block of memory, and return a blob of memory containing the data suitable to be put into a subblock. Details of the operation are:
+        /// - The chunked-compression scheme is described in more detail in the class ChunkedCompressionHeaderHelper.
+        /// - A pointer to an output buffer must be supplied, and its size is to be given. The required size of the output buffer is in general not known (and  
+        ///    not knowable) beforehand. It is only possible to query an upper limit for the output-buffer (CalculateMaxCompressedSizeChunked). If the output buffer
+        ///    size is insufficient, this method return 'false'. 
+        /// - On input, the parameter 'sizeDestination' gives the size of the output buffer; on return of the function, the value is overwritten with the actual  
+        ///     used size (which is always less than the size on input).
+        /// - All error conditions (like e. g. invalid arguments) result in an exception being thrown.
+        /// \param          sourceWidth         Width of the source bitmap in pixels.
+        /// \param          sourceHeight        Height of the source bitmap in pixels.
+        /// \param          sourceStride        The stride of the source bitmap in bytes.
+        /// \param          sourcePixeltype     The pixeltype of the source bitmap.
+        /// \param          source              Pointer to the source bitmap.
+        /// \param [in,out] destination         The pointer to the output buffer.
+        /// \param [in,out] sizeDestination     On input, this gives the size of the destination buffer in bytes. On return of this method (and provided the return value is 'true'), this gives
+        ///                                     the actual used size (which is always less or equal to the value on input).
+        /// \param          parameters          Property bag containing parameters controlling the operation. This argument can be null, in which case default parameters are used.
+        ///
+        /// \returns    True if it succeeds, and in this case the argument 'sizeDestination' will contain the size actual used in the output buffer.
+        ///             False is returned in the case that the output buffer size was insufficient.
+        static bool Compress(
+            std::uint32_t sourceWidth,
+            std::uint32_t sourceHeight,
+            std::uint32_t sourceStride,
+            libCZI::PixelType sourcePixeltype,
+            const void* source,
+            void* destination,
+            size_t& sizeDestination,
+            const ICompressParameters* parameters);
+    };
+
     /// Simplistic implementation of the compression-parameters property bag. Note that for high-performance scenarios
     /// it might be a good idea to re-use instances of this, or have a custom implementation without heap-allocation
     /// penalty.
@@ -582,23 +621,45 @@ namespace libCZI
         }
     };
 
+    /// Here we gather utilities for working with chunked-compression headers. The concept of the chunked-compression scheme
+    /// is to have a header which describes the structure of the compressed data in terms of "chunks", and then the compressed
+    /// data is organized in a sequence of chunks, where each chunk contains compressed data for a part of the uncompressed data.
+    /// The header contains information about the size of each chunk, the compression method used for each chunk, and other parameters. 
+    /// This allows to have more flexibility in how the data is compressed and stored.
+    /// The binary layout is as follows:
+    ///   ┌─────────────────────┐
+    ///   │ HEADER              │
+    ///   ├─────────────────────┤
+    ///   │ CHUNK #0            │
+    ///   ├─────────────────────┤
+    ///   │ CHUNK #1            │
+    ///   ├─────────────────────┤
+    ///   │ ...                 │
+    ///   ├─────────────────────┤
+    ///   │ CHUNK #n            │
+    ///   └─────────────────────┘
+    /// The individual chunks contain the compressed data, and each chunk can be decompressed independently. The header contains 
+    /// the necessary information to interpret the chunks correctly.
+    /// The header itself is organized in "header chunks", where each header chunk has a chunk identifier, a size, and a payload.
     class LIBCZI_API ChunkedCompressionHeaderHelper
     {
     public:
+        /// Values that represent codecs.
         enum class Codec : std::uint8_t
         {
-            Invalid = 0xff,
-            ZStd = 0,
-            Lz4  = 1,
+            Invalid = 0xff, ///< Invalid codec, used to indicate an error condition.
+            ZStd = 0,       ///< Zstd compression
+            Lz4 = 1,        ///< Lz4 compression
         };
 
+        /// Values that represent header chunk Identifiers.
         enum class HeaderChunkId : std::uint16_t
         {
-            EndOfHeader = 0,
-            ChunkSizes = 1,
-            CompressionMethod = 2,
-            DecompressedSizes = 3,
-            Preprocessing = 4,
+            EndOfHeader = 0,	    ///< This header chunk indicates the end of the header. This must be the last chunk in the header, and it has no payload.
+            ChunkSizes = 1,         ///< This header chunk contains the sizes of the compressed chunks.
+            CompressionMethod = 2,  ///< This header chunk contains the compression method (codec) used for the chunks.
+            DecompressedSizes = 3,  ///< This header chunk contains the sizes of the uncompressed data for the chunks.
+            Preprocessing = 4,      ///< This header chunk contains information about preprocessing applied to the data before compression (like hi-lo byte packing).
         };
 
         struct CompressionHeaderChunk

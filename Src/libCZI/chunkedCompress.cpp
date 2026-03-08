@@ -6,7 +6,10 @@
 #include <stdexcept>
 #include <limits>
 
+#include "compresscommon.h"
+
 using namespace libCZI;
+using namespace libCZI::detail;
 using namespace std;
 
 namespace
@@ -746,4 +749,27 @@ std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressio
     }
 
     return make_tuple(bytes_consumed, header_info);
+}
+
+//-----------------------------------------------------------------------------
+
+struct ChunkedCompressionOptions
+{
+    std::uint32_t chunkSize;
+};
+
+bool libCZI::ChunkedCompress::Compress(
+            std::uint32_t sourceWidth,
+            std::uint32_t sourceHeight,
+            std::uint32_t sourceStride,
+            libCZI::PixelType sourcePixeltype,
+            const void* source,
+            void* destination,
+            size_t& sizeDestination,
+            const ICompressParameters* parameters)
+{
+    CompressionUtilities::CheckSourceBitmapArgumentsAndThrow(sourceWidth, sourceHeight, sourceStride, sourcePixeltype, source);
+    CompressionUtilities::CheckDestinationArgumentsAndThrow(destination, sizeDestination, 1);
+
+    throw std::logic_error("ChunkedCompress::Compress is not implemented yet.");
 }
