@@ -11,6 +11,8 @@
 #include "compresscommon.h"
 
 #include <zstd.h>
+
+#include "BitmapOperations.h"
 #if (ZSTD_VERSION_MAJOR >= 1 && ZSTD_VERSION_MINOR >= 5) 
 #include <zstd_errors.h>
 #else
@@ -840,72 +842,80 @@ namespace
         const size_t line_size = options.sourceWidth * bytesPerPel;
 
         vector<uint32_t> compressed_sizes;
+        const void* source_data_for_compression;
+        auto deleter = [&](void* ptr) -> void {options.freeTempBuffer(ptr); };
+        unique_ptr<void, decltype(deleter)> upTemp(nullptr, deleter);// (tempBuffer, deleter);
         if (line_size == options.sourceStride)
         {
-            const bool success = ChunkedCompressWithZstd(options, options.source, options.sourceHeight * line_size, compressed_sizes);
-            if (!success)
-            {
-                return 0;
-            }
-
-            const size_t total_compressed_chunks_size = accumulate(compressed_sizes.cbegin(), compressed_sizes.cend(), static_cast<size_t>(0));
-
-            // Ok - now the chunks are compressed (at the start of the destination buffer), and we have the compressed sizes for each chunk in compressed_sizes.
-            // Now - we need to prepare the header information, then we need to move the compressed chunks in the destination buffer to make room for the header 
-            // at the start of the buffer, and then we need to write the header at the start of the buffer. Unfortunately, we cannot write the header first and 
-            // then compress the chunks after the header, since the is variable in size, and we can only determine the size of the header after we have compressed 
-            // the chunks and know the compressed sizes.
-            ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
-            header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
-            header_info_for_max_size_determination.hiLoBytePackingApplied = false;
-            header_info_for_max_size_determination.number_of_chunks = static_cast<std::uint32_t>(compressed_sizes.size());
-
-            const size_t max_header_size = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
-            unique_ptr<uint8_t[]> header_buffer = make_unique<uint8_t[]>(max_header_size);
-
-            ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
-            header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
-            header_info_for_creation.hiLoBytePackingApplied = false;
-            header_info_for_creation.chunkSizes = std::move(compressed_sizes);
-            header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForHeader(options);
-
-            const size_t actual_header_size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(header_buffer.get(), max_header_size, header_info_for_creation);
-
-            // now, we need to have actual_header_size bytes left in the destination buffer to write the header
-            if (total_compressed_chunks_size + actual_header_size > options.sizeDestination)
-            {
-                return 0;  // not enough space in the destination buffer to write the header and the compressed chunks
-            }
-
-            // now, move the compressed chunks in the destination buffer to make room for the header at the start of the buffer
-            memmove(static_cast<uint8_t*>(options.destination) + actual_header_size, options.destination, total_compressed_chunks_size);
-
-            // now write the header at the start of the destination buffer
-            memcpy(options.destination, header_buffer.get(), actual_header_size);
-
-            // and - done, report the total size of the compressed data (header + compressed chunks)
-            return actual_header_size + total_compressed_chunks_size;
+            source_data_for_compression = options.source;
         }
         else
         {
-            // otherwise, we need to copy each line into a contiguous buffer before compressing, since the compression function requires contiguous input data for each chunk
+            void* tempBuffer = options.allocateTempBuffer(options.sourceHeight * line_size);
+            if (tempBuffer == nullptr)
+            {
+                return 0;  // allocation failed
+            }
 
+            upTemp.reset(tempBuffer);
+
+            CBitmapOperations::Copy(
+                options.sourcePixeltype,
+                options.source,
+                options.sourceStride,
+                options.sourcePixeltype,
+                upTemp.get(),
+                line_size,
+                options.sourceWidth,
+                options.sourceHeight,
+                false);
+
+            source_data_for_compression = upTemp.get();
         }
 
-        //size_t source_data_size = options.sourceHeight * line_size;
-        //uint32_t number_of_chunks = static_cast<uint32_t>((source_data_size + options.chunkSize - 1) / options.chunkSize);
+        const bool success = ChunkedCompressWithZstd(options, options.source, options.sourceHeight * line_size, compressed_sizes);
+        if (!success)
+        {
+            return 0;
+        }
 
-        //vector<uint64_t> compressed_sizes;
-        //compressed_sizes.reserve(number_of_chunks);
+        const size_t total_compressed_chunks_size = accumulate(compressed_sizes.cbegin(), compressed_sizes.cend(), static_cast<size_t>(0));
 
-        //size_t offset_in_source = 0;
-        //
-        //for (uint32_t n = 0; n < number_of_chunks; ++n)
-        //{
-        //    uint32_t size_of_chunk = min(options.chunkSize, static_cast<uint32_t>(source_data_size - static_cast<size_t>(n) * options.chunkSize));
+        // Ok - now the chunks are compressed (at the start of the destination buffer), and we have the compressed sizes for each chunk in compressed_sizes.
+        // Now - we need to prepare the header information, then we need to move the compressed chunks in the destination buffer to make room for the header 
+        // at the start of the buffer, and then we need to write the header at the start of the buffer. Unfortunately, we cannot write the header first and 
+        // then compress the chunks after the header, since the is variable in size, and we can only determine the size of the header after we have compressed 
+        // the chunks and know the compressed sizes.
+        ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
+        header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
+        header_info_for_max_size_determination.hiLoBytePackingApplied = false;
+        header_info_for_max_size_determination.number_of_chunks = static_cast<std::uint32_t>(compressed_sizes.size());
 
-        //    offset_in_source += size_of_chunk;
-        //}
+        const size_t max_header_size = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
+        unique_ptr<uint8_t[]> header_buffer = make_unique<uint8_t[]>(max_header_size);
+
+        ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
+        header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
+        header_info_for_creation.hiLoBytePackingApplied = false;
+        header_info_for_creation.chunkSizes = std::move(compressed_sizes);
+        header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForHeader(options);
+
+        const size_t actual_header_size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(header_buffer.get(), max_header_size, header_info_for_creation);
+
+        // now, we need to have actual_header_size bytes left in the destination buffer to write the header
+        if (total_compressed_chunks_size + actual_header_size > options.sizeDestination)
+        {
+            return 0;  // not enough space in the destination buffer to write the header and the compressed chunks
+        }
+
+        // now, move the compressed chunks in the destination buffer to make room for the header at the start of the buffer
+        memmove(static_cast<uint8_t*>(options.destination) + actual_header_size, options.destination, total_compressed_chunks_size);
+
+        // now write the header at the start of the destination buffer
+        memcpy(options.destination, header_buffer.get(), actual_header_size);
+
+        // and - done, report the total size of the compressed data (header + compressed chunks)
+        return actual_header_size + total_compressed_chunks_size;
     }
 }
 
@@ -987,5 +997,7 @@ bool libCZI::ChunkedCompress::Compress(
     }
     case ChunkedCompressionHeaderHelper::Codec::Lz4:
         throw invalid_argument("LZ4 compression is not yet supported in ChunkedCompress::Compress.");
+    default:
+        throw invalid_argument("Invalid compression method specified in the parameters for ChunkedCompress::Compress.");
     }
 }
