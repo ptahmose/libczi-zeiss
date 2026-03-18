@@ -33,8 +33,10 @@ namespace libCZI
 
         CHUNKEDCOMPRESSION_MAXCHUNKSIZE = 4, ///< The maximum chunk size (in bytes) to be used for chunked compression (type: uint32). 
                                              ///< This parameter is used with the "chunked" compression scheme only.
-        CHUNKEDCOMPRESSION_CODEC = 5,        ///< The codec to be used for chunked compression (type: uint8, where the value is interpreted as a Codec enum value). 
+        CHUNKEDCOMPRESSION_CODEC = 5,        ///< The codec to be used for chunked compression (type: uint32, where the value is interpreted as a ChunkedCompressionHeaderHelper::Codec enum value). 
                                              ///< This parameter is used with the "chunked" compression scheme only.
+        CHUNKEDCOMPRESSION_RAWCOMPRESSIONLEVEL_ZSTD = 6, ///< The "raw" zstd compression level aka "ExplicitLevel" (type: int32) to be used for chunked compression. If value is out-of-range, it will be clipped.
+                                                         ///< This parameter is used with the "chunked" compression scheme only, and only if the codec for chunked compression is set to zstd.
     };
 
     /// Simple variant type used for the compression-parameters-property-bag.
@@ -566,7 +568,7 @@ namespace libCZI
         ///    size is insufficient, this method return 'false'. 
         /// - On input, the parameter 'sizeDestination' gives the size of the output buffer; on return of the function, the value is overwritten with the actual  
         ///     used size (which is always less than the size on input).
-        /// - All error conditions (like e. g. invalid arguments) result in an exception being thrown.
+        /// - All error conditions (like e.g. invalid arguments) result in an exception being thrown.
         /// \param          sourceWidth         Width of the source bitmap in pixels.
         /// \param          sourceHeight        Height of the source bitmap in pixels.
         /// \param          sourceStride        The stride of the source bitmap in bytes.
@@ -587,6 +589,8 @@ namespace libCZI
             const void* source,
             void* destination,
             size_t& sizeDestination,
+            const std::function<void* (size_t)>& allocateTempBuffer,
+            const std::function<void(void*)>& freeTempBuffer,
             const ICompressParameters* parameters);
     };
 

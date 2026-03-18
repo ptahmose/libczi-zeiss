@@ -5,8 +5,17 @@
 #include "libCZI_compress.h"
 #include <stdexcept>
 #include <limits>
+#include <numeric>
 
+#include "utilities.h"
 #include "compresscommon.h"
+
+#include <zstd.h>
+#if (ZSTD_VERSION_MAJOR >= 1 && ZSTD_VERSION_MINOR >= 5) 
+#include <zstd_errors.h>
+#else
+#include <common/zstd_errors.h>
+#endif
 
 using namespace libCZI;
 using namespace libCZI::detail;
@@ -753,10 +762,152 @@ std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressio
 
 //-----------------------------------------------------------------------------
 
-struct ChunkedCompressionOptions
+namespace
 {
-    std::uint32_t chunkSize;
-};
+    struct ChunkedCompressionParameters
+    {
+        std::uint32_t sourceWidth;
+        std::uint32_t sourceHeight;
+        std::uint32_t sourceStride;
+        libCZI::PixelType sourcePixeltype;
+        const void* source;
+        void* destination;
+        size_t sizeDestination;
+        std::function<void* (size_t)> allocateTempBuffer;
+        std::function<void(void*)> freeTempBuffer;
+    };
+
+    struct ChunkedCompressionOptionsZstd : public ChunkedCompressionParameters
+    {
+        std::uint32_t chunkSize;
+        std::int32_t zstdCompressionLevel;
+    };
+
+    bool ChunkedCompressWithZstd(const ChunkedCompressionOptionsZstd& options, const void* source_data, size_t size_source_data, vector<uint32_t>& compressed_sizes)
+    {
+        const uint32_t number_of_chunks = static_cast<uint32_t>((size_source_data + options.chunkSize - 1) / options.chunkSize);
+
+        compressed_sizes.clear();
+        compressed_sizes.reserve(number_of_chunks);
+
+        size_t offset_in_source = 0;
+        size_t offset_in_destination = 0;
+        for (uint32_t n = 0; n < number_of_chunks; ++n)
+        {
+            uint32_t size_of_chunk = min(options.chunkSize, static_cast<uint32_t>(size_source_data - static_cast<size_t>(n) * options.chunkSize));
+
+            const size_t r = ZSTD_compress(
+                                    static_cast<uint8_t*>(options.destination) + offset_in_destination,
+                                    options.sizeDestination - offset_in_destination,
+                                    static_cast<const uint8_t*>(source_data) + offset_in_source,
+                                    size_of_chunk,
+                                    options.zstdCompressionLevel);
+            if (ZSTD_isError(r))
+            {
+                return false;
+            }
+
+            // TODO(JBL): check that r does not exceed numeric_limits<uint32_t>::max() before the cast in the 
+            // next statement (and handle this case appropriately, e.g. by throwing an exception), since the compressed chunk size must be representable in 4 bytes for our header format
+
+            compressed_sizes.emplace_back(static_cast<uint32_t>(r));
+
+            offset_in_source += size_of_chunk;
+            offset_in_destination += r;
+        }
+
+        return true;
+    }
+
+    std::tuple<std::uint32_t, std::uint32_t> CalculateUncompressedChunkSizesForHeader(const ChunkedCompressionOptionsZstd& options)
+    {
+        const size_t line_size = options.sourceWidth * static_cast<size_t>(Utils::GetBytesPerPixel(options.sourcePixeltype));
+        const size_t source_data_size = options.sourceHeight * line_size;
+        const uint32_t last_chunk_size = static_cast<uint32_t>(source_data_size % options.chunkSize);
+        return make_tuple(static_cast<uint32_t>(options.chunkSize), last_chunk_size);
+    }
+
+    /// This function compresses the input data in chunks using zstd, and returns the total size of the compressed data 
+    /// (i.e. the sum of the sizes of the compressed chunks plus the header information). If the return value is 0,
+    /// this indicates that compression failed because the destination buffer was not large enough to hold the compressed data.
+    /// 
+    /// \param  options The options for chunked compression with zstd, including source/destination pointers and sizes, chunk size, and zstd compression level.
+    /// 				
+    /// \returns	The total size of the compressed data, or 0 if compression failed due to insufficient destination buffer size.
+    size_t ChunkedCompressWithZstd(const ChunkedCompressionOptionsZstd& options)
+    {
+        const size_t bytesPerPel = Utils::GetBytesPerPixel(options.sourcePixeltype);
+        const size_t line_size = options.sourceWidth * bytesPerPel;
+
+        vector<uint32_t> compressed_sizes;
+        if (line_size == options.sourceStride)
+        {
+            const bool success = ChunkedCompressWithZstd(options, options.source, options.sourceHeight * line_size, compressed_sizes);
+            if (!success)
+            {
+                return 0;
+            }
+
+            const size_t total_compressed_chunks_size = accumulate(compressed_sizes.cbegin(), compressed_sizes.cend(), static_cast<size_t>(0));
+
+            // Ok - now the chunks are compressed (at the start of the destination buffer), and we have the compressed sizes for each chunk in compressed_sizes.
+            // Now - we need to prepare the header information, then we need to move the compressed chunks in the destination buffer to make room for the header 
+            // at the start of the buffer, and then we need to write the header at the start of the buffer. Unfortunately, we cannot write the header first and 
+            // then compress the chunks after the header, since the is variable in size, and we can only determine the size of the header after we have compressed 
+            // the chunks and know the compressed sizes.
+            ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
+            header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
+            header_info_for_max_size_determination.hiLoBytePackingApplied = false;
+            header_info_for_max_size_determination.number_of_chunks = static_cast<std::uint32_t>(compressed_sizes.size());
+
+            const size_t max_header_size = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
+            unique_ptr<uint8_t[]> header_buffer = make_unique<uint8_t[]>(max_header_size);
+
+            ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
+            header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
+            header_info_for_creation.hiLoBytePackingApplied = false;
+            header_info_for_creation.chunkSizes = std::move(compressed_sizes);
+            header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForHeader(options);
+
+            const size_t actual_header_size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(header_buffer.get(), max_header_size, header_info_for_creation);
+
+            // now, we need to have actual_header_size bytes left in the destination buffer to write the header
+            if (total_compressed_chunks_size + actual_header_size > options.sizeDestination)
+            {
+                return 0;  // not enough space in the destination buffer to write the header and the compressed chunks
+            }
+
+            // now, move the compressed chunks in the destination buffer to make room for the header at the start of the buffer
+            memmove(static_cast<uint8_t*>(options.destination) + actual_header_size, options.destination, total_compressed_chunks_size);
+
+            // now write the header at the start of the destination buffer
+            memcpy(options.destination, header_buffer.get(), actual_header_size);
+
+            // and - done, report the total size of the compressed data (header + compressed chunks)
+            return actual_header_size + total_compressed_chunks_size;
+        }
+        else
+        {
+            // otherwise, we need to copy each line into a contiguous buffer before compressing, since the compression function requires contiguous input data for each chunk
+
+        }
+
+        //size_t source_data_size = options.sourceHeight * line_size;
+        //uint32_t number_of_chunks = static_cast<uint32_t>((source_data_size + options.chunkSize - 1) / options.chunkSize);
+
+        //vector<uint64_t> compressed_sizes;
+        //compressed_sizes.reserve(number_of_chunks);
+
+        //size_t offset_in_source = 0;
+        //
+        //for (uint32_t n = 0; n < number_of_chunks; ++n)
+        //{
+        //    uint32_t size_of_chunk = min(options.chunkSize, static_cast<uint32_t>(source_data_size - static_cast<size_t>(n) * options.chunkSize));
+
+        //    offset_in_source += size_of_chunk;
+        //}
+    }
+}
 
 bool libCZI::ChunkedCompress::Compress(
             std::uint32_t sourceWidth,
@@ -766,10 +917,75 @@ bool libCZI::ChunkedCompress::Compress(
             const void* source,
             void* destination,
             size_t& sizeDestination,
+            const std::function<void* (size_t)>& allocateTempBuffer,
+            const std::function<void(void*)>& freeTempBuffer,
             const ICompressParameters* parameters)
 {
     CompressionUtilities::CheckSourceBitmapArgumentsAndThrow(sourceWidth, sourceHeight, sourceStride, sourcePixeltype, source);
     CompressionUtilities::CheckDestinationArgumentsAndThrow(destination, sizeDestination, 1);
 
-    throw std::logic_error("ChunkedCompress::Compress is not implemented yet.");
+    ChunkedCompressionHeaderHelper::Codec compression_method = ChunkedCompressionHeaderHelper::Codec::Invalid;
+
+    CompressParameter parameter;
+    if (parameters->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC, &parameter) &&
+        parameter.GetType() == CompressParameter::Type::Uint32)
+    {
+        switch (parameter.GetUInt32())
+        {
+        case static_cast<uint32_t>(ChunkedCompressionHeaderHelper::Codec::ZStd):
+            compression_method = ChunkedCompressionHeaderHelper::Codec::ZStd;
+            break;
+        case static_cast<uint32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4):
+            compression_method = ChunkedCompressionHeaderHelper::Codec::Lz4;
+            break;
+        }
+    }
+
+    uint32_t max_chunk_size = 64 * 1024;    // use a default of 64kb
+    if (parameters->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE, &parameter) &&
+        parameter.GetType() == CompressParameter::Type::Uint32)
+    {
+        const uint32_t value = parameter.GetUInt32();
+        if (value > 0)
+        {
+            max_chunk_size = value;
+        }
+    }
+
+    switch (compression_method)
+    {
+    case ChunkedCompressionHeaderHelper::Codec::Invalid:    // if no valid compression method is specified, we assume zstd (which is the default)
+    case ChunkedCompressionHeaderHelper::Codec::ZStd:
+    {
+        ChunkedCompressionOptionsZstd options_zstd;
+        options_zstd.sourceWidth = sourceWidth;
+        options_zstd.sourceHeight = sourceHeight;
+        options_zstd.sourceStride = sourceStride;
+        options_zstd.sourcePixeltype = sourcePixeltype;
+        options_zstd.source = source;
+        options_zstd.destination = destination;
+        options_zstd.sizeDestination = sizeDestination;
+        options_zstd.allocateTempBuffer = allocateTempBuffer;
+        options_zstd.freeTempBuffer = freeTempBuffer;
+
+        options_zstd.zstdCompressionLevel = 0;  // will be set to the default level later if not specified in the parameters
+        options_zstd.chunkSize = max_chunk_size;
+        if (parameters->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_RAWCOMPRESSIONLEVEL_ZSTD, &parameter) &&
+            parameter.GetType() == CompressParameter::Type::Int32)
+        {
+            options_zstd.zstdCompressionLevel = Utilities::clamp(parameter.GetInt32(), ZSTD_minCLevel(), ZSTD_maxCLevel());
+        }
+
+        size_t size_compressed = ChunkedCompressWithZstd(options_zstd);
+        if (size_compressed == 0)
+        {
+            return false;  // compression failed due to insufficient destination buffer size
+        }
+
+        sizeDestination = size_compressed;
+        return true;
+    }
+    case ChunkedCompressionHeaderHelper::Codec::Lz4:
+        throw invalid_argument("LZ4 compression is not yet supported in ChunkedCompress::Compress.");
+    }
 }
