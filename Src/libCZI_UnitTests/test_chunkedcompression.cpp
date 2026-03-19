@@ -5,6 +5,7 @@
 #include "include_gtest.h"
 #include "inc_libCZI.h"
 
+#include <array>
 #include <memory>
 
 using namespace libCZI;
@@ -68,14 +69,14 @@ TEST(ChunkedCompression, DecodeTestScenario1)
     ASSERT_EQ(memcmp(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + sizeof(data_chunk_1) + sizeof(data_chunk_2) + sizeof(data_chunk_3), data_chunk_4, sizeof(data_chunk_4)), 0) << "Decoded data chunk 4 does not match original data";
 }
 
-TEST(ChunkedCompression, EncodeAndDecode1)
+TEST(ChunkedCompression, EncodeAndDecodeSmallGray8Bitmap)
 {
     constexpr size_t kDestinationBufferSize = 10 * 1024;
     unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
-    static constexpr uint8_t source_data[] = {1,2,3,4};
+    static constexpr array<uint8_t, 4> source_data = { 1,2,3,4 };
 
     size_t compressed_data_size = kDestinationBufferSize;
-    const bool success = ChunkedCompress::Compress(2, 2, 2, PixelType::Gray8, source_data, compressed_data_buffer.get(), compressed_data_size, nullptr);
+    const bool success = ChunkedCompress::Compress(2, 2, 2, PixelType::Gray8, source_data.data(), compressed_data_buffer.get(), compressed_data_size, nullptr);
 
     ASSERT_TRUE(success);
     ASSERT_GT(compressed_data_size, 0);
@@ -92,4 +93,9 @@ TEST(ChunkedCompression, EncodeAndDecode1)
     ASSERT_EQ(decoded_bitmap->GetPixelType(), PixelType::Gray8);
     ASSERT_EQ(decoded_bitmap->GetWidth(), 2);
     ASSERT_EQ(decoded_bitmap->GetHeight(), 2);
+    const auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(decoded_bitmap);
+    ASSERT_EQ(*static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi), 1) << "Decoded data does not match original data";
+    ASSERT_EQ(*(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + 1), 2) << "Decoded data does not match original data";
+    ASSERT_EQ(*(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + bitmap_lock_info.stride), 3) << "Decoded data does not match original data";
+    ASSERT_EQ(*(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + bitmap_lock_info.stride + 1), 4) << "Decoded data does not match original data";
 }
