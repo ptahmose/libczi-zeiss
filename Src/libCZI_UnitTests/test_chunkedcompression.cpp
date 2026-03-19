@@ -71,6 +71,8 @@ TEST(ChunkedCompression, DecodeTestScenario1)
 
 TEST(ChunkedCompression, EncodeAndDecodeSmallGray8Bitmap)
 {
+    // we compress a small Gray8 bitmap with the chunked-compression encoder and then decode it again to verify the roundtrip.
+    
     constexpr size_t kDestinationBufferSize = 10 * 1024;
     unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
     static constexpr array<uint8_t, 4> source_data = { 1,2,3,4 };
