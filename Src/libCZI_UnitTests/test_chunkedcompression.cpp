@@ -73,7 +73,7 @@ TEST(ChunkedCompression, EncodeAndDecodeSmallGray8Bitmap)
 {
     // we compress a small Gray8 bitmap with the chunked-compression encoder and then decode it again to verify the roundtrip.
     
-    constexpr size_t kDestinationBufferSize = 10 * 1024;
+    constexpr size_t kDestinationBufferSize = 10 * 1024;    // this is more than enough for the small bitmap we are compressing here
     unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
     static constexpr array<uint8_t, 4> source_data = { 1,2,3,4 };
 
@@ -100,4 +100,39 @@ TEST(ChunkedCompression, EncodeAndDecodeSmallGray8Bitmap)
     ASSERT_EQ(*(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + 1), 2) << "Decoded data does not match original data";
     ASSERT_EQ(*(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + bitmap_lock_info.stride), 3) << "Decoded data does not match original data";
     ASSERT_EQ(*(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + bitmap_lock_info.stride + 1), 4) << "Decoded data does not match original data";
+}
+
+TEST(ChunkedCompression, EncodeAndDecodeSmallGray16Bitmap)
+{
+    // we compress a small Gray16 bitmap with the chunked-compression encoder and then decode it again to verify the roundtrip.
+
+    constexpr size_t kDestinationBufferSize = 10 * 1024;
+    unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
+    static constexpr array<uint16_t, 4> source_data = { 1,2,3,4 };
+
+    size_t compressed_data_size = kDestinationBufferSize;
+    const bool success = ChunkedCompress::Compress(2, 2, 2 * sizeof(uint16_t), PixelType::Gray16, source_data.data(), compressed_data_buffer.get(), compressed_data_size, nullptr);
+
+    ASSERT_TRUE(success);
+    ASSERT_GT(compressed_data_size, 0);
+    ASSERT_LE(compressed_data_size, kDestinationBufferSize);
+
+    const auto decoder = libCZI::GetDefaultSiteObject(SiteObjectType::Default)->GetDecoder(ImageDecoderType::ChunkedCompression, nullptr);
+    const auto decoded_bitmap = decoder->Decode(
+                                    compressed_data_buffer.get(),
+                                    compressed_data_size,
+                                    PixelType::Gray16,
+                                    2,
+                                    2,
+                                    nullptr);
+    ASSERT_EQ(decoded_bitmap->GetPixelType(), PixelType::Gray16);
+    ASSERT_EQ(decoded_bitmap->GetWidth(), 2);
+    ASSERT_EQ(decoded_bitmap->GetHeight(), 2);
+    const auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(decoded_bitmap);
+    const auto* first_row = static_cast<const uint16_t*>(bitmap_lock_info.ptrDataRoi);
+    const auto* second_row = reinterpret_cast<const uint16_t*>(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + bitmap_lock_info.stride);
+    ASSERT_EQ(first_row[0], 1) << "Decoded data does not match original data";
+    ASSERT_EQ(first_row[1], 2) << "Decoded data does not match original data";
+    ASSERT_EQ(second_row[0], 3) << "Decoded data does not match original data";
+    ASSERT_EQ(second_row[1], 4) << "Decoded data does not match original data";
 }
