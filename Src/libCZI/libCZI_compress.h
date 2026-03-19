@@ -577,6 +577,11 @@ namespace libCZI
         /// \param [in,out] destination         The pointer to the output buffer.
         /// \param [in,out] sizeDestination     On input, this gives the size of the destination buffer in bytes. On return of this method (and provided the return value is 'true'), this gives
         ///                                     the actual used size (which is always less or equal to the value on input).
+        /// \param          allocateTempBuffer  This functor is called when it is necessary to allocate a temporary buffer. The argument specifies the
+        ///                                     size in bytes for the buffer. This argument must not be null.
+        ///                                     If this functor returns null, then this method exception is left with an exception (of type runtime_error).
+        /// \param          freeTempBuffer      This functor is called when the temporary buffer is to be released. It is guaranteed that this free-functor is called for
+        ///                                     every temp-buffer-allocation before this method returns. This argument must not be null.
         /// \param          parameters          Property bag containing parameters controlling the operation. This argument can be null, in which case default parameters are used.
         ///
         /// \returns    True if it succeeds, and in this case the argument 'sizeDestination' will contain the size actual used in the output buffer.
@@ -591,6 +596,16 @@ namespace libCZI
             size_t& sizeDestination,
             const std::function<void* (size_t)>& allocateTempBuffer,
             const std::function<void(void*)>& freeTempBuffer,
+            const ICompressParameters* parameters);
+
+        static bool Compress(
+            std::uint32_t sourceWidth,
+            std::uint32_t sourceHeight,
+            std::uint32_t sourceStride,
+            libCZI::PixelType sourcePixeltype,
+            const void* source,
+            void* destination,
+            size_t& sizeDestination,
             const ICompressParameters* parameters);
     };
 

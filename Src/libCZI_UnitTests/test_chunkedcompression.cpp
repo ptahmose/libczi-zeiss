@@ -5,7 +5,10 @@
 #include "include_gtest.h"
 #include "inc_libCZI.h"
 
+#include <memory>
+
 using namespace libCZI;
+using namespace std;
 
 TEST(ChunkedCompression, DecodeTestScenario1)
 {
@@ -63,4 +66,30 @@ TEST(ChunkedCompression, DecodeTestScenario1)
     ASSERT_EQ(memcmp(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + sizeof(data_chunk_1), data_chunk_2, sizeof(data_chunk_2)), 0) << "Decoded data chunk 2 does not match original data";
     ASSERT_EQ(memcmp(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + sizeof(data_chunk_1) + sizeof(data_chunk_2), data_chunk_3, sizeof(data_chunk_3)), 0) << "Decoded data chunk 3 does not match original data";
     ASSERT_EQ(memcmp(static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + sizeof(data_chunk_1) + sizeof(data_chunk_2) + sizeof(data_chunk_3), data_chunk_4, sizeof(data_chunk_4)), 0) << "Decoded data chunk 4 does not match original data";
+}
+
+TEST(ChunkedCompression, EncodeAndDecode1)
+{
+    constexpr size_t kDestinationBufferSize = 10 * 1024;
+    unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
+    static constexpr uint8_t source_data[] = {1,2,3,4};
+
+    size_t compressed_data_size = kDestinationBufferSize;
+    const bool success = ChunkedCompress::Compress(2, 2, 2, PixelType::Gray8, source_data, compressed_data_buffer.get(), compressed_data_size, nullptr);
+
+    ASSERT_TRUE(success);
+    ASSERT_GT(compressed_data_size, 0);
+    ASSERT_LE(compressed_data_size, kDestinationBufferSize);
+
+    const auto decoder = libCZI::GetDefaultSiteObject(SiteObjectType::Default)->GetDecoder(ImageDecoderType::ChunkedCompression, nullptr);
+    const auto decoded_bitmap = decoder->Decode(
+                                    compressed_data_buffer.get(),
+                                    compressed_data_size,
+                                    PixelType::Gray8,
+                                    2,
+                                    2,
+                                    nullptr);
+    ASSERT_EQ(decoded_bitmap->GetPixelType(), PixelType::Gray8);
+    ASSERT_EQ(decoded_bitmap->GetWidth(), 2);
+    ASSERT_EQ(decoded_bitmap->GetHeight(), 2);
 }
