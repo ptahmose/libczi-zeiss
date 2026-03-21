@@ -607,6 +607,24 @@ namespace libCZI
             void* destination,
             size_t& sizeDestination,
             const ICompressParameters* parameters);
+
+        static std::shared_ptr<IMemoryBlock> CompressToMemoryBlock(
+            std::uint32_t sourceWidth,
+            std::uint32_t sourceHeight,
+            std::uint32_t sourceStride,
+            libCZI::PixelType sourcePixeltype,
+            const void* source,
+            const std::function<void* (size_t)>& allocateTempBuffer,
+            const std::function<void(void*)>& freeTempBuffer,
+            const ICompressParameters* parameters);
+
+        static std::shared_ptr<IMemoryBlock> CompressToMemoryBlock(
+            std::uint32_t sourceWidth,
+            std::uint32_t sourceHeight,
+            std::uint32_t sourceStride,
+            libCZI::PixelType sourcePixeltype,
+            const void* source,
+            const ICompressParameters* parameters);
     };
 
     /// Simplistic implementation of the compression-parameters property bag. Note that for high-performance scenarios
