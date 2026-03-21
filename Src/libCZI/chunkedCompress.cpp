@@ -214,6 +214,16 @@ namespace
         throw invalid_argument("Value too large for 3-byte varint encoding (max 22 bits)");
     }
 
+    /// Write a 4 byte varint to the given destination. The encoding is "MSB varint encoding" (cf. here https://techoverflow.net/2013/01/25/efficiently-encoding-variable-length-integers-in-cc/ 
+    /// or https://developpaper.com/explain-the-principle-of-varint-coding-in-detail/):
+    ///
+    /// \exception	invalid_argument	Thrown when an invalid argument error condition occurs.
+    ///
+    /// \param [in,out] destination		The destination buffer.
+    /// \param 		   sizeDestination	Size of the destination buffer.
+    /// \param 		   value		   	The value to encode.
+    ///
+    /// \returns	The number of bytes written to the destination buffer.
     size_t Write4ByteVarInt(void* destination, size_t sizeDestination, uint32_t value)
     {
         if (sizeDestination < 1)
@@ -383,33 +393,103 @@ bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* d
     }
 }
 
+/// Determines the total byte length of the compression header that begins at \p data.
+///
+/// The compression header is a self-describing binary structure consisting of a
+/// sequence of typed chunks, each encoded as:
+/// \code
+///   [ id     : 1–2 byte MSB varint ]
+///   [ length : 1–3 byte MSB varint ]
+///   [ payload: <length> bytes      ]
+/// \endcode
+/// The sequence is terminated by a single EndOfHeader sentinel chunk whose id equals
+/// zero, which encodes to exactly one byte and carries no length or payload field.
+///
+/// This function walks the chunk sequence without interpreting any payload content.
+/// It counts bytes consumed until (and including) the EndOfHeader sentinel byte,
+/// and returns that total count.
+///
+/// Typical use: given a buffer that contains a compression header immediately followed
+/// by raw compressed chunk data, this function lets the caller locate the start of
+/// the compressed data as:
+/// \code
+///   static_cast<const uint8_t*>(data) + GetCompressionHeaderSize(data, sizeData)
+/// \endcode
+///
+/// \exception std::invalid_argument  Thrown when \p sizeData is 0 (no bytes to read),
+///                                   or when a chunk's declared payload length would
+///                                   extend beyond the end of the supplied buffer
+///                                   (indicating a truncated or malformed header).
+///
+/// \param  data      Pointer to the first byte of the compression header.
+/// \param  sizeData  Number of readable bytes available at \p data.
+///
+/// \returns  The number of bytes occupied by the complete header, including the
+///           terminating EndOfHeader byte.
 size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const void* data, size_t sizeData)
 {
+    // A well-formed header must contain at least one byte: the single-byte EndOfHeader
+    // sentinel (id = 0 encodes to one byte in MSB varint).  Reject an empty buffer
+    // immediately so every subsequent Parse* call can safely read at least one byte.
     if (sizeData < 1)
     {
         throw invalid_argument("sizeData must be at least 1");
     }
 
+    // Reinterpret the caller's untyped pointer as a byte pointer so that pointer
+    // arithmetic can be used to step through the header one field at a time.
     const uint8_t* p = static_cast<const uint8_t*>(data);
+
+    // 'offset' is the running byte cursor.  It starts at zero (the first byte of the
+    // header) and is advanced after each decoded field.  When the EndOfHeader sentinel
+    // is found, its value equals the total number of bytes the header occupies.
     size_t offset = 0;
+
+    // Walk the header chunk-by-chunk.  Each iteration decodes one (id, length, payload)
+    // triple.  The loop has no explicit iteration count; it exits either through the
+    // EndOfHeader return below, or via an exception thrown by a Parse* helper when the
+    // remaining buffer is too small to decode the next field.
     for (;;)
     {
+        // Decode the chunk identifier varint starting at the current cursor position.
+        // Identifiers use MSB varint encoding with a 2-byte maximum:
+        //   - If bit 7 of the first byte is 0, the id fits in 1 byte (values 0–127).
+        //   - If bit 7 is 1, the id spans 2 bytes (values 128–16383).
+        // The returned tuple carries (decoded_id_value, bytes_consumed_by_id_varint).
         const tuple<uint16_t, size_t> id = Parse2ByteVarInt(p + offset, sizeData - offset);
+
+        // Advance the cursor past the id varint (1 or 2 bytes depending on the value).
         offset += get<1>(id);
+
+        // Check whether this is the EndOfHeader sentinel (id == 0).
+        // EndOfHeader has no length or payload field; it is just the single id byte.
+        // At this point 'offset' has already moved past that byte, so it equals the
+        // total byte length of the complete header — the value the caller is after.
         if (get<0>(id) == static_cast<uint16_t>(HeaderChunkId::EndOfHeader))
         {
             return offset;
         }
 
+        // For any non-terminating chunk, the id is immediately followed by a
+        // payload-length field encoded as a 3-byte-maximum MSB varint.
+        // The returned tuple carries (payload_length_in_bytes, bytes_consumed_by_length_varint).
         const tuple<uint32_t, size_t> chunkSize = Parse3ByteVarInt(p + offset, sizeData - offset);
-        offset += get<1>(id);
 
+        // Advance the cursor past the payload-length varint (1, 2, or 3 bytes).
+        offset += get<1>(chunkSize);
+
+        // Validate that the declared payload length does not reach beyond the end of
+        // the supplied buffer.  A well-formed header must fit entirely within 'sizeData'
+        // bytes; if it does not, the buffer is either truncated or the data is corrupt.
         // check if the chunk size is valid (i.e. does not exceed the remaining data size)
         if (get<0>(chunkSize) + offset > sizeData)
         {
             throw invalid_argument("Invalid chunk size in compression header.");
         }
 
+        // Skip over the payload bytes without reading them.  This function only
+        // measures header size; interpreting payload content is the responsibility
+        // of ParseCompressionHeader / WalkCompressionHeader.
         offset += get<0>(chunkSize);
     }
 }
@@ -610,7 +690,7 @@ namespace
         size_t i;
         for (i = 0; i < chunk.chunkPayloadSize;)
         {
-            const auto value_and_size = Parse3ByteVarInt(static_cast<const uint8_t*>(chunk.chunkPayload) + i, chunk.chunkPayloadSize - i);
+            const auto value_and_size = Parse4ByteVarInt(static_cast<const uint8_t*>(chunk.chunkPayload) + i, chunk.chunkPayloadSize - i);
             i += get<1>(value_and_size);
             chunk_sizes.emplace_back(get<0>(value_and_size));
         }
@@ -781,6 +861,11 @@ namespace
             : ptr(nullptr), sizeOfData(0), offset(0)
         {
             this->ptr = malloc(initialSize);
+            if (this->ptr == nullptr)
+            {
+                throw std::runtime_error("Failed to allocate memory block.");
+            }
+
             this->sizeOfData = initialSize;
         }
 
@@ -808,7 +893,10 @@ namespace
             }
         }
 
-        ~MemoryBlockWithOffset() override { free(this->ptr); }
+        ~MemoryBlockWithOffset() override 
+        { 
+            free(this->ptr); 
+        }
     };
 
     struct ChunkedCompressionParameters
@@ -935,14 +1023,15 @@ namespace
         return true;
     }
 
-    /// This function compresses the input data in chunks using zstd, and returns the total size of the compressed data 
-    /// (i.e. the sum of the sizes of the compressed chunks plus the header information). If the return value is 0,
-    /// this indicates that compression failed because the destination buffer was not large enough to hold the compressed data.
-    /// 
+    /// This function compresses the source bitmap in chunks using zstd, prepends the chunked-compression header to the
+    /// compressed data in the destination buffer, and returns the total number of bytes written (header + all compressed
+    /// chunks). If the return value is 0, this indicates that compression failed because the destination buffer was not
+    /// large enough to hold the compressed data.
+    ///
     /// \param  options The options for chunked compression with zstd, including source/destination pointers and sizes, chunk size, and zstd compression level.
-    /// 				
-    /// \returns	The total size of the compressed data, or 0 if compression failed due to insufficient destination buffer size.
-    size_t ChunkedCompressWithZstd(const ChunkedCompressionOptionsZstd& options)
+    ///
+    /// \returns	The total size of the compressed data (header + chunks) in bytes, or 0 if the destination buffer was too small.
+    size_t ChunkedCompressZstdAndPrependHeader(const ChunkedCompressionOptionsZstd& options)
     {
         vector<uint32_t> compressed_sizes;
         size_t total_compressed_chunks_size;
@@ -1084,7 +1173,7 @@ bool ChunkedCompress::Compress(
         options_zstd.zstdCompressionLevel = DetermineZstdCompressionLevel(parameters);
         options_zstd.chunkSize = max_chunk_size;
 
-        const size_t size_compressed = ChunkedCompressWithZstd(options_zstd);
+        const size_t size_compressed = ChunkedCompressZstdAndPrependHeader(options_zstd);
         if (size_compressed == 0)
         {
             return false;  // compression failed due to insufficient destination buffer size
