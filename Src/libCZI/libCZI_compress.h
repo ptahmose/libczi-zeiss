@@ -558,10 +558,18 @@ namespace libCZI
             const ICompressParameters* parameters);
     };
 
+    /// The functions found here deal with chunked-compression (the compression-part in particular).
+    /// Those functions are rather low-level, and the common theme is - given a source bitmap, create a blob
+    /// (containing the compressed bitmap data) which is suitable to be placed in a subblock's data.
+    /// Several overloads are provided: for performance-critical scenarios there are versions which use
+    /// caller-provided functors for internal temporary-buffer allocation and deallocation. This allows
+    /// callers to implement a pool-based strategy - reusing pre-allocated buffers across calls - in order
+    /// to avoid repeated heap-allocations. Overloads without those functors allocate the temporary buffer
+    /// internally from the standard heap and are more convenient for non-performance-critical use.
     class LIBCZI_API ChunkedCompress
     {
     public:
-        /// Compress the specified bitmap in "chunked-compression"-format. This method will compress the specified source-bitmap according to the "ZEN-chunked-compression-scheme" to a newly allocated block of memory, and return a blob of memory containing the data suitable to be put into a subblock. Details of the operation are:
+        /// Compress the specified bitmap in "chunked-compression"-format.
         /// - The chunked-compression scheme is described in more detail in the class ChunkedCompressionHeaderHelper.
         /// - A pointer to an output buffer must be supplied, and its size is to be given. The required size of the output buffer is in general not known (and  
         ///    not knowable) beforehand. It is only possible to query an upper limit for the output-buffer (CalculateMaxCompressedSizeChunked). If the output buffer
@@ -598,6 +606,28 @@ namespace libCZI
             const std::function<void(void*)>& freeTempBuffer,
             const ICompressParameters* parameters);
 
+        /// Compress the specified bitmap in "chunked-compression"-format. This method will compress the specified source-bitmap according to the "ZEN-chunked-compression-scheme" to
+        /// a caller supplied block of memory. If successful, the used size of the memory block is returned, and the data is suitable to be put into a subblock. Details of the operation are:
+        /// - The chunked-compression scheme is described in more detail in the class ChunkedCompressionHeaderHelper.
+        /// - (under certain conditions) a temporary buffer is required, and this memory is then allocated internally (and freed) from the standard heap.
+        /// - A pointer to an output buffer must be supplied, and its size is to be given. The required size of the output buffer is in general not known (and  
+        ///    not knowable) beforehand. It is only possible to query an upper limit for the output-buffer (CalculateMaxCompressedSizeChunked). If the output buffer
+        ///    size is insufficient, this method return 'false'. 
+        /// - On input, the parameter 'sizeDestination' gives the size of the output buffer; on return of the function, the value is overwritten with the actual  
+        ///     used size (which is always less than the size on input).
+        /// - All error conditions (like e.g. invalid arguments) result in an exception being thrown.
+        /// \param          sourceWidth         Width of the source bitmap in pixels.
+        /// \param          sourceHeight        Height of the source bitmap in pixels.
+        /// \param          sourceStride        The stride of the source bitmap in bytes.
+        /// \param          sourcePixeltype     The pixeltype of the source bitmap.
+        /// \param          source              Pointer to the source bitmap.
+        /// \param [in,out] destination         The pointer to the output buffer.
+        /// \param [in,out] sizeDestination     On input, this gives the size of the destination buffer in bytes. On return of this method (and provided the return value is 'true'), this gives
+        ///                                     the actual used size (which is always less or equal to the value on input).
+        /// \param          parameters          Property bag containing parameters controlling the operation. This argument can be null, in which case default parameters are used.
+        ///
+        /// \returns    True if it succeeds, and in this case the argument 'sizeDestination' will contain the size actual used in the output buffer.
+        ///             False is returned in the case that the output buffer size was insufficient.
         static bool Compress(
             std::uint32_t sourceWidth,
             std::uint32_t sourceHeight,
@@ -608,6 +638,25 @@ namespace libCZI
             size_t& sizeDestination,
             const ICompressParameters* parameters);
 
+        /// Compress the specified bitmap in "chunked-compression"-format. This method will compress the specified source-bitmap according to the "ZEN-chunked-compression-scheme" to newly allocated memory,
+        /// and return a blob of memory containing the data suitable to be put into a subblock. Details of the operation are:
+        /// - The chunked-compression scheme is described in more detail in the class ChunkedCompressionHeaderHelper.
+        /// - (under certain conditions) a temporary buffer is required, the size of this temporary buffer is width*size_of_pixel*height. This method allows to pass
+        ///    in functions for allocating/freeing this temp-buffer. For performance reasons, some type of buffer-pooling or reuse can be applied here.
+        /// - All error conditions (like e.g. invalid arguments) result in an exception being thrown.
+        /// \param          sourceWidth         Width of the source bitmap in pixels.
+        /// \param          sourceHeight        Height of the source bitmap in pixels.
+        /// \param          sourceStride        The stride of the source bitmap in bytes.
+        /// \param          sourcePixeltype     The pixeltype of the source bitmap.
+        /// \param          source              Pointer to the source bitmap.
+        /// \param          allocateTempBuffer  This functor is called when it is necessary to allocate a temporary buffer. The argument specifies the
+        ///                                     size in bytes for the buffer. This argument must not be null.
+        ///                                     If this functor returns null, then this method exception is left with an exception (of type runtime_error).
+        /// \param          freeTempBuffer      This functor is called when the temporary buffer is to be released. It is guaranteed that this free-functor is called for
+        ///                                     every temp-buffer-allocation before this method returns. This argument must not be null.
+        /// \param          parameters          Property bag containing parameters controlling the operation. This argument can be null, in which case default parameters are used.
+        ///
+        /// \returns    A shared pointer to an object representing and owning a block of memory.
         static std::shared_ptr<IMemoryBlock> CompressToMemoryBlock(
             std::uint32_t sourceWidth,
             std::uint32_t sourceHeight,
@@ -618,6 +667,19 @@ namespace libCZI
             const std::function<void(void*)>& freeTempBuffer,
             const ICompressParameters* parameters);
 
+        /// Compress the specified bitmap in "chunked-compression"-format. This method will compress the specified source-bitmap according to the "ZEN-chunked-compression-scheme" to newly allocated memory,
+        /// and return a blob of memory containing the data suitable to be put into a subblock. Details of the operation are:
+        /// - The chunked-compression scheme is described in more detail in the class ChunkedCompressionHeaderHelper.
+        /// - (under certain conditions) a temporary buffer is required, and this memory is then allocated internally (and freed) from the standard heap.
+        /// - All error conditions (like e.g. invalid arguments) result in an exception being thrown.
+        /// \param          sourceWidth         Width of the source bitmap in pixels.
+        /// \param          sourceHeight        Height of the source bitmap in pixels.
+        /// \param          sourceStride        The stride of the source bitmap in bytes.
+        /// \param          sourcePixeltype     The pixeltype of the source bitmap.
+        /// \param          source              Pointer to the source bitmap.
+        /// \param          parameters          Property bag containing parameters controlling the operation. This argument can be null, in which case default parameters are used.
+        ///
+        /// \returns    A shared pointer to an object representing and owning a block of memory.
         static std::shared_ptr<IMemoryBlock> CompressToMemoryBlock(
             std::uint32_t sourceWidth,
             std::uint32_t sourceHeight,
@@ -699,12 +761,14 @@ namespace libCZI
             Preprocessing = 4,      ///< This header chunk contains information about preprocessing applied to the data before compression (like hi-lo byte packing).
         };
 
+        /// This struct represents a single header chunk as encountered when walking the chunked-compression header.
+        /// Each header chunk consists of an identifier, the size of its payload, and a pointer to the payload data.
         struct CompressionHeaderChunk
         {
-            std::uint16_t chunkId;
-            std::uint32_t chunkSize;
-            const void* chunkPayload;
-            size_t chunkPayloadSize;
+            std::uint16_t chunkId;          ///< The identifier of the header chunk. The value is to be interpreted as a HeaderChunkId enum value.
+            std::uint32_t chunkSize;        ///< The size of the header chunk payload in bytes.
+            const void* chunkPayload;       ///< Pointer to the payload data of the header chunk. The memory is valid only for the duration of the callback invocation.
+            size_t chunkPayloadSize;        ///< The size of the data pointed to by 'chunkPayload' in bytes. This is equal to 'chunkSize'.
         };
 
         /// This struct defines the parameters to be stored in the chunked-compression headers for use when
@@ -712,15 +776,17 @@ namespace libCZI
         /// one" is currently supported.
         struct HeaderInfoForCreation
         {
+            /// The codec to be used for compressing the chunks.
             Codec codec;
 
             /// This flag indicates whether the "hi-lo byte packing" preprocessing is applied to the data before compression.
             /// 0 means "no hi-lo byte packing", 1 means "hi-lo byte packing applied", everything else means: unspecified.
             std::uint8_t hiLoBytePackingApplied;
 
+            /// The sizes of the compressed chunks in bytes, one entry per chunk.
             std::vector<std::uint32_t> chunkSizes;
 
-            /// This describes the uncompressed sizes of the data for each chunk. 
+            /// This describes the uncompressed sizes
             /// The first value is the uncompressed size of all data chunks but the last, and the second value is the uncompressed size of the last chunk. 
             /// (Note that we here are assuming that all the sizes but the last are the same!).
             /// If the last chunk has the same uncompressed size as the other chunks or if there is only one chunk, then the second value is zero 
@@ -728,19 +794,33 @@ namespace libCZI
             std::tuple<std::uint32_t, std::uint32_t> uncompressedSizes;
         };
 
+        /// This struct contains the parsed information extracted from a chunked-compression header.
         struct HeaderInfo
         {
+            /// This struct holds the compressed and uncompressed sizes of a single chunk.
             struct ChunkInfo
             {
-                std::uint32_t compressedSize;
-                std::uint32_t uncompressedSize;
+                std::uint32_t compressedSize;   ///< The size of the compressed chunk data in bytes.
+                std::uint32_t uncompressedSize; ///< The size of the uncompressed chunk data in bytes.
             };
 
-            Codec codec;
-            bool hiLoBytePackingApplied;
-            std::vector<ChunkInfo> chunks;
+            Codec codec;                        ///< The codec used for compressing the chunks.
+            bool hiLoBytePackingApplied;        ///< Whether the "hi-lo byte packing" preprocessing was applied to the data before compression.
+            std::vector<ChunkInfo> chunks;      ///< The per-chunk information entries, one for each compressed chunk in order.
         };
 
+        /// Walk the chunked-compression header and invoke the specified callback for each header chunk found.
+        /// The callback receives a 'CompressionHeaderChunk' describing the current chunk; returning false from
+        /// the callback stops the walk early. If the data does not represent a valid chunked-compression header,
+        /// an exception is thrown.
+        ///
+        /// \param 	data			Pointer to the data containing the chunked-compression header.
+        /// \param 	sizeData		The size of the data in bytes.
+        /// \param 	callback		The callback invoked for each header chunk. Return true to continue walking, false to stop.
+        /// \param [out]	bytes_consumed	If non-null, on return this gives the total number of bytes consumed by the header.
+        ///
+        /// \returns	True if the header was walked successfully (including an early stop caused by the callback returning false);
+        ///			false if the header could not be parsed.
         static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback, size_t* bytes_consumed);
 
         /// Parse the chunked-compression header, and return the size of the header (in bytes). If the given data does not contain a valid chunked-compression header,
@@ -752,6 +832,14 @@ namespace libCZI
         /// \returns	The size of the header in units of bytes.
         static size_t GetCompressionHeaderSize(const void* data, size_t sizeData);
 
+        /// Parse the chunked-compression header and return both its byte size and the extracted header information.
+        /// If the given data does not contain a valid chunked-compression header, an exception is thrown.
+        ///
+        /// \param 	data		Pointer to the data to be parsed.
+        /// \param 	sizeData	The size of the data in bytes.
+        ///
+        /// \returns	A tuple where the first element is the size of the header in bytes, and the second element
+        ///			is a 'HeaderInfo' structure containing the parsed header information.
         static std::tuple<size_t, HeaderInfo> ParseCompressionHeader(const void* data, size_t sizeData);
 
         /// Creates a chunked-compression-header for the given header information. The created header is written to the memory pointed to by 
@@ -771,8 +859,8 @@ namespace libCZI
         /// All fields must be set to valid values. The number_of_chunks field must be greater than 1.
         struct HeaderInfoForMaxSizeDetermination
         {
-            Codec codec;
-            std::uint8_t hiLoBytePackingApplied;
+            Codec codec;                          ///< The codec to be used for compressing the chunks.
+            std::uint8_t hiLoBytePackingApplied;  ///< This flag indicates whether the "hi-lo byte packing" preprocessing is applied. 0 means "no hi-lo byte packing", 1 means "applied", everything else means: unspecified.
 
             /// The number of chunks. Must be greater than 1.
             std::uint32_t number_of_chunks;
