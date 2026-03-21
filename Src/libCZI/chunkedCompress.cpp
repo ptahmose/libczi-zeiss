@@ -944,53 +944,6 @@ namespace
     /// \returns	The total size of the compressed data, or 0 if compression failed due to insufficient destination buffer size.
     size_t ChunkedCompressWithZstd(const ChunkedCompressionOptionsZstd& options)
     {
-        /*const size_t bytesPerPel = Utils::GetBytesPerPixel(options.sourcePixeltype);
-        const size_t line_size = options.sourceWidth * bytesPerPel;
-        const size_t source_data_size = options.sourceHeight * line_size;
-
-        vector<uint32_t> compressed_sizes;
-        const void* source_data_for_compression;
-        auto deleter = [&](void* ptr) -> void {options.freeTempBuffer(ptr); };
-        unique_ptr<void, decltype(deleter)> upTemp(nullptr, deleter);
-        if (line_size == options.sourceStride)
-        {
-            source_data_for_compression = options.source;
-        }
-        else
-        {
-            void* tempBuffer = options.allocateTempBuffer(source_data_size);
-            if (tempBuffer == nullptr)
-            {
-                // allocation failed
-                stringstream ss;
-                ss << "Allocation of temporary buffer (of " << source_data_size << " bytes) failed.";
-                throw runtime_error(ss.str());
-            }
-
-            upTemp.reset(tempBuffer);
-
-            CBitmapOperations::Copy(
-                options.sourcePixeltype,
-                options.source,
-                options.sourceStride,
-                options.sourcePixeltype,
-                upTemp.get(),
-                line_size,
-                options.sourceWidth,
-                options.sourceHeight,
-                false);
-
-            source_data_for_compression = upTemp.get();
-        }
-
-        const bool success = ChunkedCompressWithZstd(options, source_data_for_compression, source_data_size, compressed_sizes);
-        if (!success)
-        {
-            return 0;
-        }
-
-        const size_t total_compressed_chunks_size = accumulate(compressed_sizes.cbegin(), compressed_sizes.cend(), static_cast<size_t>(0));
-        */
         vector<uint32_t> compressed_sizes;
         size_t total_compressed_chunks_size;
         bool success = ChunkedCompressToDestinationBuffer(options, compressed_sizes, &total_compressed_chunks_size);
@@ -999,11 +952,10 @@ namespace
             return 0;
         }
 
-
         // Ok - now the chunks are compressed (at the start of the destination buffer), and we have the compressed sizes for each chunk in compressed_sizes.
         // Now - we need to prepare the header information, then we need to move the compressed chunks in the destination buffer to make room for the header 
         // at the start of the buffer, and then we need to write the header at the start of the buffer. Unfortunately, we cannot write the header first and 
-        // then compress the chunks after the header, since the is variable in size, and we can only determine the size of the header after we have compressed 
+        // then compress the chunks after the header, since the header is variable in size, and we can only determine the size of the header after we have compressed 
         // the chunks and know the compressed sizes.
         ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
         header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
@@ -1130,15 +1082,7 @@ bool ChunkedCompress::Compress(
         options_zstd.freeTempBuffer = freeTempBuffer;
 
         options_zstd.zstdCompressionLevel = DetermineZstdCompressionLevel(parameters);
-//        options_zstd.zstdCompressionLevel = 0;  // will be set to the default level later if not specified in the parameters
         options_zstd.chunkSize = max_chunk_size;
-
-  /*      CompressParameter parameter;
-        if (parameters != nullptr && parameters->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_RAWCOMPRESSIONLEVEL_ZSTD, &parameter) &&
-            parameter.GetType() == CompressParameter::Type::Int32)
-        {
-            options_zstd.zstdCompressionLevel = Utilities::clamp(parameter.GetInt32(), ZSTD_minCLevel(), ZSTD_maxCLevel());
-        }*/
 
         const size_t size_compressed = ChunkedCompressWithZstd(options_zstd);
         if (size_compressed == 0)
