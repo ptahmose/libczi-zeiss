@@ -219,7 +219,14 @@ TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallBgr48Bitmap
     ASSERT_EQ(memcmp(compressed_data_buffer.get(), mem_blk->GetPtr(), compressed_data_size), 0) << "Compressed data from CompressToMemoryBlock does not match data from Compress";
 }
 
-TEST(ChunkedCompression, CompressToMemoryBlockRoundTripsRandomGray8Bitmap)
+struct ChunkedCompressionRoundTripParams
+{
+    uint32_t maxChunkSize;
+};
+
+struct ChunkedCompressionRoundTripFixture : public testing::TestWithParam<ChunkedCompressionRoundTripParams> {};
+
+TEST_P(ChunkedCompressionRoundTripFixture, CompressToMemoryBlockRoundTripsRandomGray8Bitmap)
 {
     // we compress a Gray8 bitmap filled with deterministic random data using CompressToMemoryBlock, then decode it again and verify the roundtrip.
 
@@ -235,7 +242,10 @@ TEST(ChunkedCompression, CompressToMemoryBlockRoundTripsRandomGray8Bitmap)
         value = static_cast<uint8_t>(distribution(rng));
     }
 
-    auto mem_blk = ChunkedCompress::CompressToMemoryBlock(kWidth, kHeight, kStride, PixelType::Gray8, source_data.data(), nullptr);
+    CompressParametersOnMap compress_params;
+    compress_params.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE)] = CompressParameter(GetParam().maxChunkSize);
+
+    auto mem_blk = ChunkedCompress::CompressToMemoryBlock(kWidth, kHeight, kStride, PixelType::Gray8, source_data.data(), &compress_params);
     ASSERT_NE(mem_blk, nullptr);
     ASSERT_GT(mem_blk->GetSizeOfData(), 0U);
 
@@ -259,3 +269,13 @@ TEST(ChunkedCompression, CompressToMemoryBlockRoundTripsRandomGray8Bitmap)
         ASSERT_EQ(memcmp(decoded_row, source_row, kWidth), 0) << "Decoded row " << y << " does not match original data";
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    ChunkedCompression,
+    ChunkedCompressionRoundTripFixture,
+    testing::Values(
+        ChunkedCompressionRoundTripParams{ 65536 },
+        ChunkedCompressionRoundTripParams{ 32768 },
+        ChunkedCompressionRoundTripParams{ 14879 },
+        ChunkedCompressionRoundTripParams{ 89999 }
+    ));
