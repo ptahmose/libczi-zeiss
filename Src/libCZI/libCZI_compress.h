@@ -883,5 +883,13 @@ namespace libCZI
         ///
         /// \returns	The max number of bytes required for constructing a CompressionHeader with 'CreateCompressionHeader'.
         static size_t DetermineMaxSizeForCompressionHeader(const HeaderInfoForCreation& headerInfo);
+
+        static size_t CalculateMaxCompressedSizeChunked(
+            std::uint32_t sourceWidth, 
+            std::uint32_t sourceHeight, 
+            libCZI::PixelType sourcePixeltype, 
+            std::uint32_t maxChunkSize,
+            Codec codec,
+            bool hiLoBytePacking);
     };
 }
