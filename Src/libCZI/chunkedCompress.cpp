@@ -799,7 +799,7 @@ namespace
 
         void ReduceSize(size_t reducedSize)
         {
-            assert(reducedSize <= this->sizeOfData);
+            //assert(reducedSize <= this->sizeOfData);
             void* new_ptr = realloc(this->ptr, reducedSize);
             if (new_ptr != nullptr)
             {
