@@ -29,7 +29,8 @@ namespace
             libCZI::CompressionMode::Jpg,
             libCZI::CompressionMode::JpgXr,
             libCZI::CompressionMode::Zstd0,
-            libCZI::CompressionMode::Zstd1
+            libCZI::CompressionMode::Zstd1,
+            libCZI::CompressionMode::ChunkedExtensible,
         };
 
         for (const auto& compressionMode : AvailableCompressionModes)
@@ -468,6 +469,8 @@ std::vector<tOutput> InternalCreateLookUpTableFromGamma(int tableElementCnt, tFl
         return "zstd0";
     case CompressionMode::Zstd1:
         return "zstd1";
+    case CompressionMode::ChunkedExtensible:
+        return "chunked";
     case CompressionMode::Invalid:
         return "invalid";
     }
