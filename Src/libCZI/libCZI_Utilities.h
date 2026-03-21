@@ -369,6 +369,8 @@ namespace libCZI
         //!             - Pixel type Gray48: Used       --> "zstd1:ExplicitLevel=2;PreProcess=HiLoByteUnpack"
         static const char* const VALUE_COMPRESS_HILO_BYTE_UNPACK /*= "HiLoByteUnpack"*/;
 
+        static const char* const KEY_COMPRESS_CHUNKED_MAXCHUNKSIZE /*= "ChunkedMaxChunkSize"*/;
+
         //! Define a type for compression options. It is a pair where one parameter is compression mode
         //! and the others are compression parameters.
         using CompressionOption = std::pair<libCZI::CompressionMode, std::shared_ptr<libCZI::ICompressParameters>>;

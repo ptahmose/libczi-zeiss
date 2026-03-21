@@ -65,7 +65,19 @@ namespace
                 // strategy is (currently): anything we do not understand we ignore
                 if (Utilities::icasecmp(key, Utils::KEY_COMPRESS_EXPLICIT_LEVEL))
                 {
-                    size_t indexParsingStopped;
+                    int32_t i;
+                    const bool success = Utilities::TryParseInt32(value.c_str(), &i);
+                    if (!success)
+                    {
+                        return false;
+                    }
+
+                    if (map != nullptr)
+                    {
+                        (*map)[static_cast<int>(libCZI::CompressionParameterKey::ZSTD_RAWCOMPRESSIONLEVEL)] = libCZI::CompressParameter(i);
+                    }
+
+                    /*size_t indexParsingStopped;
                     try
                     {
                         int i = stoi(value, &indexParsingStopped);
@@ -87,7 +99,7 @@ namespace
                     catch (out_of_range&)
                     {
                         return false;
-                    }
+                    }*/
                 }
                 else if (Utilities::icasecmp(key, Utils::KEY_COMPRESS_PRE_PROCESS))
                 {
@@ -97,6 +109,20 @@ namespace
                         {
                             (*map)[static_cast<int>(libCZI::CompressionParameterKey::ZSTD_PREPROCESS_DOLOHIBYTEPACKING)] = libCZI::CompressParameter(true);
                         }
+                    }
+                }
+                else if (Utilities::icasecmp(key, Utils::KEY_COMPRESS_CHUNKED_MAXCHUNKSIZE))
+                {
+                    uint32_t i;
+                    const bool success = Utilities::TryParseUInt32(value.c_str(), &i);
+                    if (!success)
+                    {
+                        return false;
+                    }
+
+                    if (map != nullptr)
+                    {
+                        (*map)[static_cast<int>(libCZI::CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE)] = libCZI::CompressParameter(i);
                     }
                 }
             }
@@ -109,6 +135,7 @@ namespace
 const char* const Utils::KEY_COMPRESS_EXPLICIT_LEVEL = "ExplicitLevel";
 const char* const Utils::KEY_COMPRESS_PRE_PROCESS = "PreProcess";
 const char* const Utils::VALUE_COMPRESS_HILO_BYTE_UNPACK = "HiLoByteUnpack";
+const char* const Utils::KEY_COMPRESS_CHUNKED_MAXCHUNKSIZE = "ChunkedMaxChunkSize";
 
 /*static*/char Utils::DimensionToChar(libCZI::DimensionIndex dim)
 {

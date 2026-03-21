@@ -491,6 +491,40 @@ tString trimImpl(const tString& str, const tString& whitespace)
     return tokens;
 }
 
+bool Utilities::TryParseInt32(const char* number, std::int32_t* pResult)
+{
+    long long liValue = strtoll(number, nullptr, 10);
+
+    if (liValue > (std::numeric_limits<int>::max)() || liValue < (std::numeric_limits<int>::min)())
+    {
+        return false;
+    }
+
+    if (pResult != nullptr)
+    {
+        *pResult = static_cast<int>(liValue);
+    }
+
+    return true;
+}
+
+bool Utilities::TryParseUInt32(const char* number, std::uint32_t* pResult)
+{
+    unsigned long long ullValue = strtoull(number, nullptr, 10);
+
+    if (ullValue > (std::numeric_limits<std::uint32_t>::max)())
+    {
+        return false;
+    }
+
+    if (pResult != nullptr)
+    {
+        *pResult = static_cast<std::uint32_t>(ullValue);
+    }
+
+    return true;
+}
+
 //-----------------------------------------------------------------------------
 
 /*static*/void LoHiBytePackUnpack::CheckLoHiByteUnpackArgumentsAndThrow(std::uint32_t width, std::uint32_t stride, const void* source, void* dest)

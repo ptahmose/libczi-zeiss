@@ -151,6 +151,9 @@ namespace libCZI
             static void ConvertUint64ToHostByteOrder(std::uint64_t* p) { ConvertInt64ToHostByteOrder(reinterpret_cast<int64_t*>(p)); }
             static void ConvertGuidToHostByteOrder(libCZI::GUID* p);
 
+            static bool TryParseInt32(const char* number, std::int32_t* pResult);
+            static bool TryParseUInt32(const char* number, std::uint32_t* pResult);
+
             static bool TryGetRgb8ColorFromString(const std::wstring& strXml, libCZI::Rgb8Color& color);
             static std::string Rgb8ColorToString(const libCZI::Rgb8Color& color);
 
