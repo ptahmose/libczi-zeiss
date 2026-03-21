@@ -533,7 +533,7 @@ TEST(ZStdCompress, WalkCompressionHeaderScenario3)
                     break;
                 case 0x03:
                     EXPECT_EQ(compression_header_chunk.chunkSize, 2) << "Unexpected header chunk data size for chunk id 0x03";
-                    EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\xe0\xf0", 5) == 0) << "Unexpected header chunk data for chunk id 0x02";
+                    EXPECT_TRUE(memcmp(compression_header_chunk.chunkPayload, "\xe0\xf0", 2) == 0) << "Unexpected header chunk data for chunk id 0x02";
                     break;
                 default:
                     EXPECT_TRUE(false) << "Unexpected header chunk id";
