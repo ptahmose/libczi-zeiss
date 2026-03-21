@@ -893,9 +893,9 @@ namespace
             }
         }
 
-        ~MemoryBlockWithOffset() override 
-        { 
-            free(this->ptr); 
+        ~MemoryBlockWithOffset() override
+        {
+            free(this->ptr);
         }
     };
 
@@ -917,6 +917,82 @@ namespace
         std::uint32_t chunkSize;
         std::int32_t zstdCompressionLevel;
     };
+
+    // This struct encapsulates the result of calculating the maximum size needed for chunked compression,
+    // including both the maximum compressed data size and the maximum header size.
+    struct MaxChunkedCompressionSizeResult
+    {
+        size_t maxCompressedSize;   ///< The maximum size of the compressed data.
+        size_t maxHeaderSize;       ///< The maximum size of the compression header.
+    };
+
+    /// Calculates the maximum compressed size of all chunks combined (excluding the header).
+    /// Each full chunk contributes \c ZSTD_compressBound(max_chunk_size); a partial last
+    /// chunk (when \p source_data_size is not an exact multiple of \p max_chunk_size)
+    /// contributes \c ZSTD_compressBound(remainder).
+    ///
+    /// \note  Does not include the header — use \c CalculateMaxCompressedSizeChunked for
+    ///        the total buffer size (header + chunks).
+    ///
+    /// \exception std::invalid_argument  Thrown for unsupported \p codec values.
+    ///
+    /// \param  codec             The compression codec.
+    /// \param  source_data_size  Total uncompressed size in bytes.
+    /// \param  max_chunk_size    Maximum uncompressed size per chunk in bytes.
+    ///
+    /// \returns  An upper bound on the total compressed size of all chunks in bytes.
+    size_t CalculateMaxSizeForChunkedCompression(ChunkedCompressionHeaderHelper::Codec codec, size_t source_data_size, uint32_t max_chunk_size)
+    {
+        // All chunks except (possibly) the last one have exactly max_chunk_size bytes of
+        // uncompressed input.  The last chunk contains the remainder and may be smaller.
+        const size_t full_chunk_count = source_data_size / max_chunk_size;
+        const size_t last_chunk_size = source_data_size % max_chunk_size;
+
+        switch (codec)
+        {
+        case ChunkedCompressionHeaderHelper::Codec::ZStd:
+        {
+            size_t total = full_chunk_count * ZSTD_compressBound(max_chunk_size);
+            if (last_chunk_size > 0)
+            {
+                total += ZSTD_compressBound(last_chunk_size);
+            }
+
+            return total;
+        }
+        default:
+            throw invalid_argument("Invalid codec specified for calculating maximum size for chunked compression.");
+        }
+    }
+
+    MaxChunkedCompressionSizeResult CalculateMaxChunkedCompressionSize(size_t size,
+                                                                        std::uint32_t maxChunkSize,
+                                                                        ChunkedCompressionHeaderHelper::Codec codec,
+                                                                        bool hiLoBytePacking)
+    {
+        MaxChunkedCompressionSizeResult result;
+        ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
+        header_info_for_max_size_determination.codec = codec;
+        header_info_for_max_size_determination.hiLoBytePackingApplied = hiLoBytePacking;
+        header_info_for_max_size_determination.number_of_chunks = static_cast<uint32_t>((size + maxChunkSize - 1) / maxChunkSize);
+        result.maxHeaderSize = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
+
+        result.maxCompressedSize = CalculateMaxSizeForChunkedCompression(codec, size, maxChunkSize);
+
+        return result;
+    }
+
+    MaxChunkedCompressionSizeResult CalculateMaxChunkedCompressionSize(std::uint32_t sourceWidth,
+                                                                        std::uint32_t sourceHeight,
+                                                                        libCZI::PixelType sourcePixeltype,
+                                                                        std::uint32_t maxChunkSize,
+                                                                        ChunkedCompressionHeaderHelper::Codec codec,
+                                                                        bool hiLoBytePacking)
+    {
+        const size_t line_size = sourceWidth * static_cast<size_t>(Utils::GetBytesPerPixel(sourcePixeltype));
+        const size_t source_data_size = sourceHeight * line_size;
+        return CalculateMaxChunkedCompressionSize(source_data_size, maxChunkSize, codec, hiLoBytePacking);
+    }
 
     bool ChunkedCompressWithZstd(const ChunkedCompressionOptionsZstd& options, const void* source_data, size_t size_source_data, vector<uint32_t>& compressed_sizes)
     {
@@ -1134,45 +1210,6 @@ namespace
 
         return zstd_compression_level;
     }
-
-    /// Calculates the maximum compressed size of all chunks combined (excluding the header).
-    /// Each full chunk contributes \c ZSTD_compressBound(max_chunk_size); a partial last
-    /// chunk (when \p source_data_size is not an exact multiple of \p max_chunk_size)
-    /// contributes \c ZSTD_compressBound(remainder).
-    ///
-    /// \note  Does not include the header — use \c CalculateMaxCompressedSizeChunked for
-    ///        the total buffer size (header + chunks).
-    ///
-    /// \exception std::invalid_argument  Thrown for unsupported \p codec values.
-    ///
-    /// \param  codec             The compression codec.
-    /// \param  source_data_size  Total uncompressed size in bytes.
-    /// \param  max_chunk_size    Maximum uncompressed size per chunk in bytes.
-    ///
-    /// \returns  An upper bound on the total compressed size of all chunks in bytes.
-    size_t CalculateMaxSizeForChunkedCompression(ChunkedCompressionHeaderHelper::Codec codec, size_t source_data_size, uint32_t max_chunk_size)
-    {
-        // All chunks except (possibly) the last one have exactly max_chunk_size bytes of
-        // uncompressed input.  The last chunk contains the remainder and may be smaller.
-        const size_t full_chunk_count = source_data_size / max_chunk_size;
-        const size_t last_chunk_size  = source_data_size % max_chunk_size;
-
-        switch (codec)
-        {
-        case ChunkedCompressionHeaderHelper::Codec::ZStd:
-        {
-            size_t total = full_chunk_count * ZSTD_compressBound(max_chunk_size);
-            if (last_chunk_size > 0)
-            {
-                total += ZSTD_compressBound(last_chunk_size);
-            }
-
-            return total;
-        }
-        default:
-            throw invalid_argument("Invalid codec specified for calculating maximum size for chunked compression.");
-        }
-    }
 }
 
 bool ChunkedCompress::Compress(
@@ -1268,6 +1305,9 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
     const ChunkedCompressionHeaderHelper::Codec compression_method = DetermineCompressionCodec(parameters);
     const uint32_t max_chunk_size = DetermineMaxChunkSize(parameters);
 
+    const auto maximum_sizes = CalculateMaxChunkedCompressionSize(sourceWidth, sourceHeight, sourcePixeltype, max_chunk_size, compression_method, false);
+
+    /*
     // now, we determine the maximum size needed for the compressed data, so that we can allocate a memory block of the appropriate size
     ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
     header_info_for_max_size_determination.codec = compression_method;
@@ -1289,9 +1329,9 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
     else
     {
         throw invalid_argument("Invalid compression method specified in the parameters for ChunkedCompress::CompressToMemoryBlock.");
-    }
+    }*/
 
-    auto mem_blk = make_shared<MemoryBlockWithOffset>(max_header_size + max_total_compressed_chunk_size);
+    auto mem_blk = make_shared<MemoryBlockWithOffset>(maximum_sizes.maxHeaderSize + maximum_sizes.maxCompressedSize/*max_header_size + max_total_compressed_chunk_size*/);
 
     vector<uint32_t> compressed_sizes;
     size_t total_compressed_chunks_size;
@@ -1303,8 +1343,8 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
         options_zstd.sourceStride = sourceStride;
         options_zstd.sourcePixeltype = sourcePixeltype;
         options_zstd.source = source;
-        options_zstd.destination = static_cast<uint8_t*>(mem_blk->GetPtr()) + max_header_size;
-        options_zstd.sizeDestination = max_total_compressed_chunk_size;
+        options_zstd.destination = static_cast<uint8_t*>(mem_blk->GetPtr()) + maximum_sizes.maxHeaderSize /*max_header_size*/;
+        options_zstd.sizeDestination = /*max_total_compressed_chunk_size*/maximum_sizes.maxCompressedSize;
         options_zstd.allocateTempBuffer = allocateTempBuffer;
         options_zstd.freeTempBuffer = freeTempBuffer;
 
@@ -1317,7 +1357,7 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
             throw runtime_error("Compression failed due to insufficient destination buffer size. This should not happen since we have allocated a memory block of the maximum size needed for the compressed data.");
         }
 
-        mem_blk->ReduceSize(max_header_size + total_compressed_chunks_size);
+        mem_blk->ReduceSize(maximum_sizes.maxHeaderSize/*max_header_size*/ + total_compressed_chunks_size);
 
         // now, prepare the header
         ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
@@ -1326,16 +1366,16 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
         header_info_for_creation.chunkSizes = std::move(compressed_sizes);
         header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForHeader(options_zstd);
 
-        const size_t actual_header_size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(mem_blk->GetPtr(), max_header_size, header_info_for_creation);
-        if (actual_header_size < max_header_size)
+        const size_t actual_header_size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(mem_blk->GetPtr(), maximum_sizes.maxHeaderSize/*max_header_size*/, header_info_for_creation);
+        if (actual_header_size < maximum_sizes.maxHeaderSize/*max_header_size*/)
         {
             // if the actual header size is smaller than the maximum header size, 
             // we move the header in front of the compressed chunks
             memmove(
-                static_cast<uint8_t*>(mem_blk->GetPtr()) + (max_header_size- actual_header_size),
+                static_cast<uint8_t*>(mem_blk->GetPtr()) + (maximum_sizes.maxHeaderSize/*max_header_size*/ - actual_header_size),
                 static_cast<uint8_t*>(mem_blk->GetPtr()),
                 actual_header_size);
-            mem_blk->SetOffset(max_header_size - actual_header_size);
+            mem_blk->SetOffset(maximum_sizes.maxHeaderSize/*max_header_size*/ - actual_header_size);
         }
 
         return mem_blk;
@@ -1354,18 +1394,6 @@ size_t ChunkedCompressionHeaderHelper::CalculateMaxCompressedSizeChunked(
                                                                     Codec codec,
                                                                     bool hiLoBytePacking)
 {
-    const size_t line_size = sourceWidth * static_cast<size_t>(Utils::GetBytesPerPixel(sourcePixeltype));
-    const size_t source_data_size = sourceHeight * line_size;
-    const uint32_t number_of_chunks = static_cast<uint32_t>((source_data_size + maxChunkSize - 1) / maxChunkSize);
-
-    HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
-    header_info_for_max_size_determination.codec = codec;
-    header_info_for_max_size_determination.hiLoBytePackingApplied = hiLoBytePacking;
-    header_info_for_max_size_determination.number_of_chunks = number_of_chunks;
-
-    size_t total_max_size = DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
-
-    total_max_size += CalculateMaxSizeForChunkedCompression(codec, source_data_size, maxChunkSize);
-
-    return total_max_size;
+    const auto sizes = CalculateMaxChunkedCompressionSize(sourceWidth, sourceHeight, sourcePixeltype, maxChunkSize, codec, hiLoBytePacking);
+    return sizes.maxHeaderSize + sizes.maxCompressedSize;
 }

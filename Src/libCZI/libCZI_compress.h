@@ -884,6 +884,19 @@ namespace libCZI
         /// \returns	The max number of bytes required for constructing a CompressionHeader with 'CreateCompressionHeader'.
         static size_t DetermineMaxSizeForCompressionHeader(const HeaderInfoForCreation& headerInfo);
 
+        /// Calculates the maximum buffer size required to hold the complete compressed blob (header + all
+        /// chunks) produced by \c ChunkedCompress::Compress for the given source bitmap and parameters.
+        /// If \c ChunkedCompress::Compress is called with an output buffer of at least this size, it will
+        /// never fail due to insufficient buffer space.
+        ///
+        /// \param  sourceWidth     Width of the source bitmap in pixels.
+        /// \param  sourceHeight    Height of the source bitmap in pixels.
+        /// \param  sourcePixeltype The pixel type of the source bitmap.
+        /// \param  maxChunkSize    Maximum uncompressed size of a single chunk in bytes.
+        /// \param  codec           The compression codec to be applied to each chunk.
+        /// \param  hiLoBytePacking Whether hi-lo byte packing preprocessing is applied before compression.
+        ///
+        /// \returns    An upper bound on the total size (header + compressed chunks) in bytes.
         static size_t CalculateMaxCompressedSizeChunked(
             std::uint32_t sourceWidth, 
             std::uint32_t sourceHeight, 
