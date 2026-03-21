@@ -1142,8 +1142,8 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
 
     // now, we determine the maximum size needed for the compressed data, so that we can allocate a memory block of the appropriate size
     ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
-    header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;  // we assume zstd, since this is the default (if the parameters do not specify a different codec)
-    header_info_for_max_size_determination.hiLoBytePackingApplied = false;  // currently, hi-lo byte packing is not supported, so we always set this to false
+    header_info_for_max_size_determination.codec = compression_method;
+    header_info_for_max_size_determination.hiLoBytePackingApplied = false;  // currently, hi-lo byte packing is not yet implemented, so we always set this to false
     header_info_for_max_size_determination.number_of_chunks = static_cast<std::uint32_t>((static_cast<size_t>(sourceHeight) * Utils::GetBytesPerPixel(sourcePixeltype) * sourceWidth + max_chunk_size - 1) / max_chunk_size);
     const size_t max_header_size = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
 
