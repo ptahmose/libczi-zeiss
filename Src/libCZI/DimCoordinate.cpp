@@ -235,23 +235,6 @@ private:
 
         return true;
     }
-
-    //static bool TryParseInt(const char* number, int* value)
-    //{
-    //    long long liValue = strtoll(number, nullptr, 10);
-
-    //    if (liValue > (std::numeric_limits<int>::max)() || liValue < (std::numeric_limits<int>::min)())
-    //    {
-    //        return false;
-    //    }
-
-    //    if (value != nullptr)
-    //    {
-    //        *value = static_cast<int>(liValue);
-    //    }
-
-    //    return true;
-    //}
 };
 
 /*static*/CDimCoordinate libCZI::CDimCoordinate::Parse(const char* str)

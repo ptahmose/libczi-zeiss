@@ -11,7 +11,6 @@
 #include "CziMetadataBuilder.h"
 #include "utilities.h"
 
-#include <cmath>
 #include <string>
 #include <regex>
 
@@ -76,30 +75,6 @@ namespace
                     {
                         (*map)[static_cast<int>(libCZI::CompressionParameterKey::ZSTD_RAWCOMPRESSIONLEVEL)] = libCZI::CompressParameter(i);
                     }
-
-                    /*size_t indexParsingStopped;
-                    try
-                    {
-                        int i = stoi(value, &indexParsingStopped);
-                        if (value[indexParsingStopped] != '\0')
-                        {
-                            // this means that parsing stopped before we reached the end of the string
-                            return false;
-                        }
-
-                        if (map != nullptr)
-                        {
-                            (*map)[static_cast<int>(libCZI::CompressionParameterKey::ZSTD_RAWCOMPRESSIONLEVEL)] = libCZI::CompressParameter(i);
-                        }
-                    }
-                    catch (invalid_argument&)
-                    {
-                        return false;
-                    }
-                    catch (out_of_range&)
-                    {
-                        return false;
-                    }*/
                 }
                 else if (Utilities::icasecmp(key, Utils::KEY_COMPRESS_PRE_PROCESS))
                 {
