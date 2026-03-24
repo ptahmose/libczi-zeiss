@@ -132,6 +132,10 @@ option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_EIGEN3 "Prefer an Eigen3-package pres
 #  See here: https://discourse.cmake.org/t/findzstd/3506
 option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_ZSTD "Prefer a ZSTD-package present on the system" OFF)
 
+# With this option, we try to use an existing lz4-library. If this option is "OFF" (the default),
+#  a private copy of lz4 is downloaded during the CMake-run and built and used.
+option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LZ4 "Prefer an LZ4-package present on the system" OFF)
+
 # When this option is ON, we try to use an existing RapidJSON-library. Otherwise, we download a private
 #  copy of RapidJSON during the CMake-run. This option is only relevant if building CZICmd.
 option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_RAPIDJSON "Prefer an RapidJSON-package present on the system" ON)

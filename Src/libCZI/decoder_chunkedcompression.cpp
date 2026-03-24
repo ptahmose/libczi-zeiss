@@ -18,6 +18,8 @@
 #include <common/zstd_errors.h>
 #endif
 
+#include <lz4.h>
+
 using namespace std;
 using namespace libCZI;
 using namespace libCZI::detail;
@@ -110,12 +112,40 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
     {
         const auto& chunk = get<1>(decode_information.chunk_header_info).chunks[i];
 
-        size_t decompressed_size = ZSTD_decompress(
-                                        static_cast<uint8_t*>(bitmap_lock_info.ptrDataRoi) + destination_offset,
-                                        chunk.uncompressedSize,
-                                        static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
-                                        chunk.compressedSize);
-        // TODO(JBL): error-handling...
+        switch (get<1>(decode_information.chunk_header_info).codec)
+        {
+        case ChunkedCompressionHeaderHelper::Codec::ZStd:
+        {
+            const size_t decompressed_size = ZSTD_decompress(
+                static_cast<uint8_t*>(bitmap_lock_info.ptrDataRoi) + destination_offset,
+                chunk.uncompressedSize,
+                static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
+                chunk.compressedSize);
+            if (ZSTD_isError(decompressed_size))
+            {
+                throw runtime_error("ZStd decompression of chunk failed.");
+            }
+
+            break;
+        }
+        case ChunkedCompressionHeaderHelper::Codec::Lz4:
+        {
+            const int decompressed_size = LZ4_decompress_safe(
+                static_cast<const char*>(decode_information.ptr_subblock_data) + source_offset,
+                static_cast<char*>(bitmap_lock_info.ptrDataRoi) + destination_offset,
+                static_cast<int>(chunk.compressedSize),
+                static_cast<int>(chunk.uncompressedSize));
+            if (decompressed_size < 0)
+            {
+                throw runtime_error("LZ4 decompression of chunk failed.");
+            }
+
+            break;
+        }
+        default:
+            throw runtime_error("Unsupported codec for chunked decompression.");
+        }
+
         destination_offset += chunk.uncompressedSize;
         source_offset += chunk.compressedSize;
     }
