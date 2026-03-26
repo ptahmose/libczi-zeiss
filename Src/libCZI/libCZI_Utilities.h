@@ -372,6 +372,8 @@ namespace libCZI
         /// For chunked compression, the maximum chunk size (in bytes). This parameter is used only for chunked compression.
         static const char* const KEY_COMPRESS_CHUNKED_MAXCHUNKSIZE /*= "ChunkedMaxChunkSize"*/; 
 
+        //static const char* const KEY_COMPRESS_CHUNKED_CODEC /*= "ChunkedCodec"*/; ///< 
+
         //! Define a type for compression options. It is a pair where one parameter is compression mode
         //! and the others are compression parameters.
         using CompressionOption = std::pair<libCZI::CompressionMode, std::shared_ptr<libCZI::ICompressParameters>>;
