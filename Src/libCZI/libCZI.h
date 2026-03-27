@@ -147,6 +147,8 @@ namespace libCZI
     /// \returns    The newly allocated bitmap containing the image from the sub-block.
     LIBCZI_API std::shared_ptr<IBitmapData>  CreateBitmapFromSubBlock(ISubBlock* subBlk, const CreateBitmapOptions* options = nullptr);
 
+    LIBCZI_API std::shared_ptr<IBitmapData> CreateBitmapFromSubBlockData(libCZI::CompressionMode compression_mode, const void* pv, size_t size, libCZI::PixelType pixelType, std::uint32_t width, std::uint32_t height, const CreateBitmapOptions* options = nullptr);
+
     /// Creates metadata-object from a metadata segment.
     /// \param [in] metadataSegment The metadata segment object.
     /// \return The newly created metadata object.

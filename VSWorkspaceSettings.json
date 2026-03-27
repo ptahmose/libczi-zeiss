@@ -1,0 +1,7 @@
+{
+  "ExcludedItems": [
+    "**/*.sln", // Ignores all .sln files anywhere in the workspace tree
+    "out/**", // Ignores Visual Studio's default CMake build output directory 
+    "build/**" // Ignores a custom 'build' directory (if you use one)
+  ]
+}
