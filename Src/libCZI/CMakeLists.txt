@@ -325,6 +325,10 @@ else()
     GIT_REPOSITORY https://github.com/lz4/lz4.git
     GIT_TAG "v1.10.0"
     SOURCE_SUBDIR "build/cmake"
+    PATCH_COMMAND # raises cmake_minimum_required to VERSION 3.10 (silences CMake 4.x deprecation warning)
+      "${CMAKE_COMMAND}"
+      -DFILE=<SOURCE_DIR>/build/cmake/CMakeLists.txt
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/patch_cmake_minimum_version.cmake"
   )
 
   message(STATUS "Fetching lz4...")
