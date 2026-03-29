@@ -32,7 +32,7 @@ include(FetchContent)
 FetchContent_Declare(
   cli11
   GIT_REPOSITORY https://github.com/CLIUtils/CLI11
-  GIT_TAG        v2.4.2
+  GIT_TAG        v2.6.2
   PATCH_COMMAND # raises cmake_minimum_required to VERSION 3.10 (silences CMake 4.x deprecation warning)
     "${CMAKE_COMMAND}"
     -DFILE=<SOURCE_DIR>/CMakeLists.txt
