@@ -107,15 +107,12 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         throw runtime_error("Invalid stride calculated from width and pixel type.");
     }
 
-    //const size_t expected_size = decode_information.height * stride;
-
     // note that the cast to uint32_t is safe because we have checked that the stride is not larger than uint32_t::max before
     auto bitmap = CStdBitmapData::Create(decode_information.pixelType, decode_information.width, decode_information.height, static_cast<uint32_t>(stride));
 
     // now - decode the chunks, one by one, directly into the bitmap (we can do this because we know that 
     //   the total size of the decompressed data matches the expected size of the bitmap)
 
-    //uint64_t destination_offset = 0;
     uint64_t source_offset = get<0>(decode_information.chunk_header_info);  // chunk-data starts after the chunk-header, so we start reading from there
     auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(bitmap);
 
@@ -127,48 +124,6 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
     {
         CChunkedCompressionDecoder::DecompressNoPreprocessing(decode_information, source_offset, bitmap_lock_info.ptrDataRoi, bitmap_lock_info.size);
     }
-
-    /*    for (size_t i = 0; i < get<1>(decode_information.chunk_header_info).chunks.size(); ++i)
-        {
-            const auto& chunk = get<1>(decode_information.chunk_header_info).chunks[i];
-
-            switch (get<1>(decode_information.chunk_header_info).codec)
-            {
-            case ChunkedCompressionHeaderHelper::Codec::ZStd:
-            {
-                const size_t decompressed_size = ZSTD_decompress(
-                    static_cast<uint8_t*>(bitmap_lock_info.ptrDataRoi) + destination_offset,
-                    chunk.uncompressedSize,
-                    static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
-                    chunk.compressedSize);
-                if (ZSTD_isError(decompressed_size))
-                {
-                    throw runtime_error("ZStd decompression of chunk failed.");
-                }
-
-                break;
-            }
-            case ChunkedCompressionHeaderHelper::Codec::Lz4:
-            {
-                const int decompressed_size = LZ4_decompress_safe(
-                    static_cast<const char*>(decode_information.ptr_subblock_data) + source_offset,
-                    static_cast<char*>(bitmap_lock_info.ptrDataRoi) + destination_offset,
-                    static_cast<int>(chunk.compressedSize),
-                    static_cast<int>(chunk.uncompressedSize));
-                if (decompressed_size < 0)
-                {
-                    throw runtime_error("LZ4 decompression of chunk failed.");
-                }
-
-                break;
-            }
-            default:
-                throw runtime_error("Unsupported codec for chunked decompression.");
-            }
-
-            destination_offset += chunk.uncompressedSize;
-            source_offset += chunk.compressedSize;
-        }*/
 
     return bitmap;
 }
@@ -244,11 +199,6 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         {
         case ChunkedCompressionHeaderHelper::Codec::ZStd:
         {
-            /*const size_t decompressed_size = ZSTD_decompress(
-                static_cast<uint8_t*>(destination) + destination_offset,
-                chunk.uncompressedSize,
-                static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
-                chunk.compressedSize);*/
             const size_t decompressed_size = ZSTD_decompress(
                 staging_buffer.data(),
                 staging_buffer.size(),
@@ -273,11 +223,6 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         }
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
-            /*const int decompressed_size = LZ4_decompress_safe(
-                static_cast<const char*>(decode_information.ptr_subblock_data) + source_offset,
-                static_cast<char*>(destination) + destination_offset,
-                static_cast<int>(chunk.compressedSize),
-                static_cast<int>(chunk.uncompressedSize));*/
             const int decompressed_size = LZ4_decompress_safe(
                 static_cast<const char*>(decode_information.ptr_subblock_data) + source_offset,
                 reinterpret_cast<char*>(staging_buffer.data()),

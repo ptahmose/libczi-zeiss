@@ -164,7 +164,11 @@ TEST(ChunkedCompression, EncodeAndDecodeSmallGray16BitmapWithLoHiByteUnpacking)
                                     PixelType::Gray16,
                                     2,
                                     2,
-                                    "IgnorePreprocessingInstruction");
+                                    "IgnorePreprocessingInstruction");  // instruct the decoder to ignore the hi-lo-byte-packing preprocessing instruction 
+                                                                        // (which is expected to be present in the compressed data, since we enabled hi-lo-byte-unpacking in the encoder) - 
+                                                                        // this should lead to the decoded data being still correct, but with the hi and lo bytes not being unpacked (i.e. 
+                                                                        // the values in the decoded bitmap are expected to be different from the original source data, since they are 
+                                                                        // expected to still be unpacked)
     ASSERT_EQ(decoded_bitmap->GetPixelType(), PixelType::Gray16);
     ASSERT_EQ(decoded_bitmap->GetWidth(), 2);
     ASSERT_EQ(decoded_bitmap->GetHeight(), 2);
