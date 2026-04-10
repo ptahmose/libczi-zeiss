@@ -21,6 +21,28 @@
 using namespace std;
 using namespace libCZI::detail;
 
+
+namespace
+{
+    bool IsTokenMatch(const char* start, const char* token, size_t token_len)
+    {
+        // Match string content
+        if (std::strncmp(start, token, token_len) != 0)
+        {
+            return false;
+        }
+
+        // Must be followed by ;, space, or null
+        const char after = start[token_len];
+        if (after != '\0' && after != ';' && !std::isspace(static_cast<unsigned char>(after)))
+        {
+            return false;
+        }
+
+        return true;
+    }
+}
+
 /*static*/std::uint8_t Utilities::HexCharToInt(char c)
 {
     switch (c)
@@ -523,6 +545,40 @@ bool Utilities::TryParseUInt32(const char* number, std::uint32_t* pResult)
     }
 
     return true;
+}
+
+bool Utilities::ContainsToken(const char* input, const char* token)
+{
+    if (!input || !token || *token == '\0')
+    {
+        return false;
+    }
+
+    const size_t token_len = std::strlen(token);
+    const char* current = input;
+
+    while ((current = std::strstr(current, token)))
+    {
+        // Check that we're at token boundary: either start or preceded by ; or whitespace
+        if (current != input)
+        {
+            const char before = *(current - 1);
+            if (before != ';' && !std::isspace(static_cast<unsigned char>(before)))
+            {
+                ++current;
+                continue;
+            }
+        }
+
+        if (IsTokenMatch(current, token, token_len))
+        {
+            return true;
+        }
+
+        ++current;
+    }
+
+    return false;
 }
 
 //-----------------------------------------------------------------------------

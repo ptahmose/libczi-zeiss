@@ -215,7 +215,7 @@ TEST(Utilities, ScopedBitmapLocker4)
         // Test assignment operator
         ScopedBitmapLockerSP locker3{ bitmap };
         EXPECT_EQ(bitmap->GetLockCount(), 3) << "expecting a lock-count of '3' after creating locker3";
-    
+
         locker3 = locker1;  // This should not change the lock count as locker3 was already locking the same bitmap
         EXPECT_EQ(bitmap->GetLockCount(), 3) << "expecting a lock-count of '3' after assignment";
     }
@@ -351,6 +351,50 @@ TEST(Utilities, ParseCompressionOptionEmptyPropertyBagCheckForCorrectCompression
     EXPECT_EQ(compressionOptions.first, CompressionMode::Zstd0);
     compressionOptions = Utils::ParseCompressionOptions("zstd1:");
     EXPECT_EQ(compressionOptions.first, CompressionMode::Zstd1);
+}
+
+TEST(Utilities, ParseCompressionOptionForChunkedCheckThatCorrectPropertiesAreUsed)
+{
+    // check that for chunked compression, the correct properties are used (i.e. the ones with "CHUNKEDCOMPRESSION_" prefix)
+    auto compressionOptions = Utils::ParseCompressionOptions("chunked:ExplicitLevel=3;PreProcess=HiLoByteUnpack");
+    EXPECT_EQ(compressionOptions.first, CompressionMode::ChunkedExtensible);
+    CompressParameter value;
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_RAWCOMPRESSIONLEVEL_ZSTD, &value));
+    EXPECT_EQ(value.GetInt32(), 3);
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING, &value));
+    EXPECT_TRUE(value.GetBoolean());
+}
+
+TEST(Utilities, ParseCompressionOptionForChunkedCheckThatSpecificOptionsAreParsedCorrectly1)
+{
+    auto compressionOptions = Utils::ParseCompressionOptions("chunked:ChunkedMaxChunkSize=65536;ChunkedCodec=zstd");
+    EXPECT_EQ(compressionOptions.first, CompressionMode::ChunkedExtensible);
+    CompressParameter value;
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE, &value));
+    EXPECT_EQ(value.GetUInt32(), 65536);
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC, &value));
+    EXPECT_EQ(value.GetInt32(), static_cast<int32_t>(ChunkedCompressionHeaderHelper::Codec::ZStd));
+}
+
+TEST(Utilities, ParseCompressionOptionForChunkedCheckThatSpecificOptionsAreParsedCorrectly2)
+{
+    auto compressionOptions = Utils::ParseCompressionOptions("chunked:ChunkedMaxChunkSize=1234567;ChunkedCodec=lz4");
+    EXPECT_EQ(compressionOptions.first, CompressionMode::ChunkedExtensible);
+    CompressParameter value;
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE, &value));
+    EXPECT_EQ(value.GetUInt32(), 1234567);
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC, &value));
+    EXPECT_EQ(value.GetInt32(), static_cast<int32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4));
+}
+
+TEST(Utilities, ParseCompressionOptionForChunkedCheckThatInvalidParametersAreIgnored1)
+{
+    const auto compressionOptions = Utils::ParseCompressionOptions("chunked:ChunkedMaxChunkSize=1234567;ChunkedCodec=xyz");
+    EXPECT_EQ(compressionOptions.first, CompressionMode::ChunkedExtensible);
+    CompressParameter value;
+    ASSERT_TRUE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE, &value));
+    EXPECT_EQ(value.GetUInt32(), 1234567);
+    ASSERT_FALSE(compressionOptions.second->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC, &value));
 }
 
 TEST(Utilities, CallGetLibCZIVersionAndCheckResultForPlausibility)

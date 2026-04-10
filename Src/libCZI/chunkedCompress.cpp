@@ -626,6 +626,29 @@ size_t libCZI::ChunkedCompressionHeaderHelper::CreateCompressionHeader(void* des
         }
     }
 
+    // --- id=4: Preprocessing ---
+    {
+        // since the hi-lo byte packing preprocessing step is not always applied, we only write this chunk when it has actually been applied 
+        // (i.e. when headerInfo.hiLoBytePackingApplied is "1")
+        if (headerInfo.hiLoBytePackingApplied == 1 || headerInfo.hiLoBytePackingApplied == 0)
+        {
+            if (offset + 3 > sizeDestination)  // id(1) + length(1) + payload(1)
+            {
+                throw invalid_argument("Destination buffer is too small for the preprocessing header chunk.");
+            }
+
+            *(p + offset) = static_cast<uint8_t>(HeaderChunkId::Preprocessing);
+            ++offset;
+
+            // payload length = 1 byte
+            offset += Write3ByteVarInt(p + offset, sizeDestination - offset, 1);
+
+            // payload: hiLoBytePackingApplied value (0 or 1)
+            *(p + offset) = static_cast<uint8_t>(headerInfo.hiLoBytePackingApplied);
+            ++offset;
+        }
+    }
+
     // --- EndOfHeader terminator ---
     if (offset + 1 > sizeDestination)
     {
@@ -664,6 +687,14 @@ size_t libCZI::ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHea
     // id(1) + length(3) + payload(1)
     // Only written when codec != ZStd (zstd is the default)
     if (headerInfo.codec != Codec::ZStd)
+    {
+        maxSize += 1 + 3 + 1;
+    }
+
+    // --- id=4: Preprocessing ---
+    // id(1) + length(3) + payload(1)
+    // Only written when hiLoBytePackingApplied is "1" (i.e. when the hi-lo byte packing preprocessing step has been applied to the chunk data)
+    if (headerInfo.hiLoBytePackingApplied == 1)
     {
         maxSize += 1 + 3 + 1;
     }
@@ -793,6 +824,7 @@ std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressio
     std::vector<std::uint32_t> chunk_sizes;
     std::vector<std::uint32_t> uncompressed_sizes;
     Codec codec = Codec::Invalid;
+    uint8_t preprocessing_value = 0xff;
 
     size_t bytes_consumed = 0;
     ChunkedCompressionHeaderHelper::WalkCompressionHeader(
@@ -816,6 +848,19 @@ std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressio
 
                 codec = static_cast<Codec>(*static_cast<const uint8_t*>(chunk.chunkPayload));
                 break;
+            case HeaderChunkId::Preprocessing:
+                if (chunk.chunkPayloadSize != 1)
+                {
+                    throw invalid_argument("Invalid preprocessing header chunk: payload size must be exactly 1 byte.");
+                }
+
+                preprocessing_value = *static_cast<const uint8_t*>(chunk.chunkPayload);
+                if (preprocessing_value != 0 && preprocessing_value != 1)
+                {
+                    throw invalid_argument("Invalid preprocessing header chunk: payload value must be either 0 or 1.");
+                }
+
+                break;
             default:
                 throw invalid_argument("Invalid header chunk ID in compression header.");
             }
@@ -826,7 +871,13 @@ std::tuple<size_t, ChunkedCompressionHeaderHelper::HeaderInfo> ChunkedCompressio
 
     ChunkedCompressionHeaderHelper::HeaderInfo header_info;
     header_info.chunks = GetChunkInfosFromCompressedAndUncompressedChunkSizes(chunk_sizes, uncompressed_sizes);
-    header_info.hiLoBytePackingApplied = false;  // currently, hi-lo byte packing is not supported, so we always set this to false
+
+    header_info.hiLoBytePackingApplied = false; // the default is "0" (i.e. not applied), and we will set this to "1" only if we encounter a preprocessing header chunk with the value "1"
+    if (preprocessing_value == 1)
+    {
+        header_info.hiLoBytePackingApplied = true;
+    }
+
     switch (codec)
     {
     case Codec::Invalid:
@@ -912,6 +963,7 @@ namespace
         size_t sizeDestination;
         std::function<void* (size_t)> allocateTempBuffer;
         std::function<void(void*)> freeTempBuffer;
+        bool do_lo_hi_byte_unpacking;   // whether the pre-processing step of hi-lo byte unpacking should be applied to the chunk data before compression.
     };
 
     struct ChunkedCompressionOptionsZstd : public ChunkedCompressionParameters
@@ -1103,10 +1155,16 @@ namespace
         const size_t source_data_size = options.sourceHeight * line_size;
 
         const void* source_data_for_compression;
-        auto deleter = [&](void* ptr) -> void {options.freeTempBuffer(ptr); };
+
+        // we use this unique_ptr to manage lifetime of the temporary buffer (if we need to allocate one),
+        // to ensure that the temporary buffer is freed when we are done (even if an exception is thrown). 
+        auto deleter = [&](void* ptr) -> void { if (ptr != nullptr) { options.freeTempBuffer(ptr); } };
         unique_ptr<void, decltype(deleter)> upTemp(nullptr, deleter);
-        if (line_size == options.sourceStride)
+
+        if (line_size == options.sourceStride && options.do_lo_hi_byte_unpacking == false)
         {
+            // only if the stride is the minimal stride (i.e. the line size) and we do not need to apply hi-lo byte unpacking, 
+            // can we directly use the source data for compression without copying it to a temporary buffer
             source_data_for_compression = options.source;
         }
         else
@@ -1122,16 +1180,30 @@ namespace
 
             upTemp.reset(tempBuffer);
 
-            CBitmapOperations::Copy(
-                options.sourcePixeltype,
-                options.source,
-                options.sourceStride,
-                options.sourcePixeltype,
-                upTemp.get(),
-                line_size,
-                options.sourceWidth,
-                options.sourceHeight,
-                false);
+            if (options.do_lo_hi_byte_unpacking)
+            {
+                // TODO(JBL) : check requirements (line_size must be divisible by 2, etc.) for hi-lo byte unpacking, and throw if the requirements are not met
+                LoHiBytePackUnpack::LoHiByteUnpackStrided(
+                    options.source,
+                    line_size / 2,
+                    options.sourceStride,
+                    options.sourceHeight,
+                    upTemp.get());
+            }
+            else
+            {
+                // copy the source data to the temporary buffer with the minimal stride (i.e. the line size), since this is required for compression, and also since this will ensure that the data is laid out in memory in a way that is optimal for compression (i.e. without "gaps" at the end of each line that would be present if the stride is larger than the line size)
+                CBitmapOperations::Copy(
+                    options.sourcePixeltype,
+                    options.source,
+                    options.sourceStride,
+                    options.sourcePixeltype,
+                    upTemp.get(),
+                    line_size,
+                    options.sourceWidth,
+                    options.sourceHeight,
+                    false);
+            }
 
             source_data_for_compression = upTemp.get();
         }
@@ -1175,7 +1247,7 @@ namespace
         // the chunks and know the compressed sizes.
         ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
         header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
-        header_info_for_max_size_determination.hiLoBytePackingApplied = false;
+        header_info_for_max_size_determination.hiLoBytePackingApplied = options.do_lo_hi_byte_unpacking;
         header_info_for_max_size_determination.number_of_chunks = static_cast<std::uint32_t>(compressed_sizes.size());
 
         const size_t max_header_size = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
@@ -1183,7 +1255,7 @@ namespace
 
         ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
         header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
-        header_info_for_creation.hiLoBytePackingApplied = false;
+        header_info_for_creation.hiLoBytePackingApplied = options.do_lo_hi_byte_unpacking;
         header_info_for_creation.chunkSizes = std::move(compressed_sizes);
         header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForHeader(options);
 
@@ -1227,10 +1299,15 @@ namespace
         const size_t source_data_size = options.sourceHeight * line_size;
 
         const void* source_data_for_compression;
-        auto deleter = [&](void* ptr) -> void {options.freeTempBuffer(ptr); };
+
+        //  we use this unique_ptr to manage lifetime of the temporary buffer (if we need to allocate one)
+        auto deleter = [&](void* ptr) -> void {if (ptr != nullptr) { options.freeTempBuffer(ptr); } };
         unique_ptr<void, decltype(deleter)> upTemp(nullptr, deleter);
-        if (line_size == options.sourceStride)
+
+        if (line_size == options.sourceStride && options.do_lo_hi_byte_unpacking == false)
         {
+            // only if the stride is the minimal stride (i.e. the line size) and we do not need to apply hi-lo byte unpacking, 
+            // can we directly use the source data for compression without copying it to a temporary buffer
             source_data_for_compression = options.source;
         }
         else
@@ -1245,16 +1322,29 @@ namespace
 
             upTemp.reset(tempBuffer);
 
-            CBitmapOperations::Copy(
-                options.sourcePixeltype,
-                options.source,
-                options.sourceStride,
-                options.sourcePixeltype,
-                upTemp.get(),
-                line_size,
-                options.sourceWidth,
-                options.sourceHeight,
-                false);
+            if (options.do_lo_hi_byte_unpacking)
+            {
+                // TODO(JBL) : check requirements (line_size must be divisible by 2, etc.) for hi-lo byte unpacking, and throw if the requirements are not met
+                LoHiBytePackUnpack::LoHiByteUnpackStrided(
+                    options.source,
+                    line_size / 2,
+                    options.sourceStride,
+                    options.sourceHeight,
+                    upTemp.get());
+            }
+            else
+            {
+                CBitmapOperations::Copy(
+                    options.sourcePixeltype,
+                    options.source,
+                    options.sourceStride,
+                    options.sourcePixeltype,
+                    upTemp.get(),
+                    line_size,
+                    options.sourceWidth,
+                    options.sourceHeight,
+                    false);
+            }
 
             source_data_for_compression = upTemp.get();
         }
@@ -1285,7 +1375,7 @@ namespace
 
         ChunkedCompressionHeaderHelper::HeaderInfoForMaxSizeDetermination header_info_for_max_size_determination;
         header_info_for_max_size_determination.codec = ChunkedCompressionHeaderHelper::Codec::Lz4;
-        header_info_for_max_size_determination.hiLoBytePackingApplied = false;
+        header_info_for_max_size_determination.hiLoBytePackingApplied = options.do_lo_hi_byte_unpacking;
         header_info_for_max_size_determination.number_of_chunks = static_cast<std::uint32_t>(compressed_sizes.size());
 
         const size_t max_header_size = ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHeader(header_info_for_max_size_determination);
@@ -1293,7 +1383,7 @@ namespace
 
         ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
         header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::Lz4;
-        header_info_for_creation.hiLoBytePackingApplied = false;
+        header_info_for_creation.hiLoBytePackingApplied = options.do_lo_hi_byte_unpacking;
         header_info_for_creation.chunkSizes = std::move(compressed_sizes);
         header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForLz4Header(options);
 
@@ -1335,14 +1425,14 @@ namespace
         ChunkedCompressionHeaderHelper::Codec compression_method = ChunkedCompressionHeaderHelper::Codec::ZStd;
         CompressParameter parameter;
         if (parameters != nullptr && parameters->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC, &parameter) &&
-            parameter.GetType() == CompressParameter::Type::Uint32)
+            parameter.GetType() == CompressParameter::Type::Int32)
         {
-            switch (parameter.GetUInt32())
+            switch (parameter.GetInt32())
             {
-            case static_cast<uint32_t>(ChunkedCompressionHeaderHelper::Codec::ZStd):
+            case static_cast<int32_t>(ChunkedCompressionHeaderHelper::Codec::ZStd):
                 compression_method = ChunkedCompressionHeaderHelper::Codec::ZStd;
                 break;
-            case static_cast<uint32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4):
+            case static_cast<int32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4):
                 compression_method = ChunkedCompressionHeaderHelper::Codec::Lz4;
                 break;
             default:
@@ -1366,6 +1456,23 @@ namespace
 
         return zstd_compression_level;
     }
+
+    bool DetermineWhetherToUseHiLoBytePreprocessing(libCZI::PixelType source_pixel_type, const ICompressParameters* parameters)
+    {
+        bool do_lo_hi_byte_packing = false;
+        if (parameters != nullptr &&
+            (source_pixel_type == PixelType::Bgr48 || source_pixel_type == PixelType::Gray16))
+        {
+            CompressParameter parameter;
+            if (parameters->TryGetProperty(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING, &parameter) &&
+                parameter.GetType() == CompressParameter::Type::Boolean)
+            {
+                do_lo_hi_byte_packing = parameter.GetBoolean();
+            }
+        }
+
+        return do_lo_hi_byte_packing;
+    }
 }
 
 bool ChunkedCompress::Compress(
@@ -1386,6 +1493,7 @@ bool ChunkedCompress::Compress(
 
     const ChunkedCompressionHeaderHelper::Codec compression_method = DetermineCompressionCodec(parameters);
     const uint32_t max_chunk_size = DetermineMaxChunkSize(parameters);
+    const bool do_lo_hi_byte_packing = DetermineWhetherToUseHiLoBytePreprocessing(sourcePixeltype, parameters);
 
     switch (compression_method)
     {
@@ -1401,6 +1509,7 @@ bool ChunkedCompress::Compress(
         options_zstd.sizeDestination = sizeDestination;
         options_zstd.allocateTempBuffer = allocateTempBuffer;
         options_zstd.freeTempBuffer = freeTempBuffer;
+        options_zstd.do_lo_hi_byte_unpacking = do_lo_hi_byte_packing;
 
         options_zstd.zstdCompressionLevel = DetermineZstdCompressionLevel(parameters);
         options_zstd.chunkSize = max_chunk_size;
@@ -1426,6 +1535,8 @@ bool ChunkedCompress::Compress(
         options_lz4.sizeDestination = sizeDestination;
         options_lz4.allocateTempBuffer = allocateTempBuffer;
         options_lz4.freeTempBuffer = freeTempBuffer;
+        options_lz4.do_lo_hi_byte_unpacking = do_lo_hi_byte_packing;
+
         options_lz4.chunkSize = max_chunk_size;
 
         const size_t size_compressed = ChunkedCompressLz4AndPrependHeader(options_lz4);
@@ -1481,8 +1592,9 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
 
     const ChunkedCompressionHeaderHelper::Codec compression_method = DetermineCompressionCodec(parameters);
     const uint32_t max_chunk_size = DetermineMaxChunkSize(parameters);
+    const bool do_lo_hi_byte_packing = DetermineWhetherToUseHiLoBytePreprocessing(sourcePixeltype, parameters);
 
-    const auto maximum_sizes = CalculateMaxChunkedCompressionSize(sourceWidth, sourceHeight, sourcePixeltype, max_chunk_size, compression_method, false);
+    const auto maximum_sizes = CalculateMaxChunkedCompressionSize(sourceWidth, sourceHeight, sourcePixeltype, max_chunk_size, compression_method, do_lo_hi_byte_packing);
 
     auto mem_blk = make_shared<MemoryBlockWithOffset>(maximum_sizes.maxHeaderSize + maximum_sizes.maxCompressedSize);
 
@@ -1500,6 +1612,7 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
         options_zstd.sizeDestination = maximum_sizes.maxCompressedSize;
         options_zstd.allocateTempBuffer = allocateTempBuffer;
         options_zstd.freeTempBuffer = freeTempBuffer;
+        options_zstd.do_lo_hi_byte_unpacking = do_lo_hi_byte_packing;
 
         options_zstd.zstdCompressionLevel = DetermineZstdCompressionLevel(parameters);
         options_zstd.chunkSize = max_chunk_size;
@@ -1515,7 +1628,7 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
         // now, prepare the header
         ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
         header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
-        header_info_for_creation.hiLoBytePackingApplied = false;
+        header_info_for_creation.hiLoBytePackingApplied = do_lo_hi_byte_packing;
         header_info_for_creation.chunkSizes = std::move(compressed_sizes);
         header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForHeader(options_zstd);
 
@@ -1545,6 +1658,7 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
         options_lz4.sizeDestination = maximum_sizes.maxCompressedSize;
         options_lz4.allocateTempBuffer = allocateTempBuffer;
         options_lz4.freeTempBuffer = freeTempBuffer;
+        options_lz4.do_lo_hi_byte_unpacking = do_lo_hi_byte_packing;
         options_lz4.chunkSize = max_chunk_size;
 
         bool success = ChunkedCompressToDestinationBufferLz4(options_lz4, compressed_sizes, &total_compressed_chunks_size);
@@ -1557,7 +1671,7 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
 
         ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
         header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::Lz4;
-        header_info_for_creation.hiLoBytePackingApplied = false;
+        header_info_for_creation.hiLoBytePackingApplied = do_lo_hi_byte_packing;
         header_info_for_creation.chunkSizes = std::move(compressed_sizes);
         header_info_for_creation.uncompressedSizes = CalculateUncompressedChunkSizesForLz4Header(options_lz4);
 

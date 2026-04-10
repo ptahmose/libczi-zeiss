@@ -139,6 +139,48 @@ TEST(ChunkedCompression, EncodeAndDecodeSmallGray16Bitmap)
     ASSERT_EQ(second_row[1], 4) << "Decoded data does not match original data";
 }
 
+TEST(ChunkedCompression, EncodeAndDecodeSmallGray16BitmapWithLoHiByteUnpacking)
+{
+    // we compress a small Gray16 bitmap with the chunked-compression encoder and then decode it again to verify the roundtrip.
+
+    constexpr size_t kDestinationBufferSize = 10 * 1024;
+    unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
+    static constexpr array<uint16_t, 4> source_data = { 1,2,3,4 };
+
+    CompressParametersOnMap parameters;
+    parameters.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING)] = CompressParameter(true);
+
+    size_t compressed_data_size = kDestinationBufferSize;
+    const bool success = ChunkedCompress::Compress(2, 2, 2 * sizeof(uint16_t), PixelType::Gray16, source_data.data(), compressed_data_buffer.get(), compressed_data_size, &parameters);
+
+    ASSERT_TRUE(success);
+    ASSERT_GT(compressed_data_size, 0);
+    ASSERT_LE(compressed_data_size, kDestinationBufferSize);
+
+    const auto decoder = libCZI::GetDefaultSiteObject(SiteObjectType::Default)->GetDecoder(ImageDecoderType::ChunkedCompression, nullptr);
+    const auto decoded_bitmap = decoder->Decode(
+                                    compressed_data_buffer.get(),
+                                    compressed_data_size,
+                                    PixelType::Gray16,
+                                    2,
+                                    2,
+                                    "IgnorePreprocessingInstruction");
+    ASSERT_EQ(decoded_bitmap->GetPixelType(), PixelType::Gray16);
+    ASSERT_EQ(decoded_bitmap->GetWidth(), 2);
+    ASSERT_EQ(decoded_bitmap->GetHeight(), 2);
+    const auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(decoded_bitmap);
+    const uint8_t* first_row = static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi);
+    const uint8_t* second_row = static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + bitmap_lock_info.stride;
+    ASSERT_EQ(first_row[0], 1) << "Decoded data does not match original data";
+    ASSERT_EQ(first_row[1], 2) << "Decoded data does not match original data";
+    ASSERT_EQ(first_row[2], 3) << "Decoded data does not match original data";
+    ASSERT_EQ(first_row[3], 4) << "Decoded data does not match original data";
+    ASSERT_EQ(second_row[0], 0) << "Decoded data does not match original data";
+    ASSERT_EQ(second_row[1], 0) << "Decoded data does not match original data";
+    ASSERT_EQ(second_row[2], 0) << "Decoded data does not match original data";
+    ASSERT_EQ(second_row[3], 0) << "Decoded data does not match original data";
+}
+
 TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallGray8Bitmap)
 {
     // we compress a small Gray8 bitmap with the chunked-compression encoder and then decode it again to verify the roundtrip.
@@ -175,6 +217,30 @@ TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallGray16Bitma
     ASSERT_LE(compressed_data_size, kDestinationBufferSize);
 
     auto mem_blk = ChunkedCompress::CompressToMemoryBlock(2, 2, 2 * sizeof(uint16_t), PixelType::Gray16, source_data.data(), nullptr);
+    ASSERT_EQ(compressed_data_size, mem_blk->GetSizeOfData()) << "Size of compressed data from CompressToMemoryBlock does not match size from Compress";
+    ASSERT_EQ(memcmp(compressed_data_buffer.get(), mem_blk->GetPtr(), compressed_data_size), 0) << "Compressed data from CompressToMemoryBlock does not match data from Compress";
+}
+
+TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallGray16BitmapWithHiLoBytePacking)
+{
+    // we compress a small Gray16 bitmap with the chunked-compression encoder (where we enable hi-lo-byte-packing)
+    // with two different APIs and verify that the compressed output matches.
+
+    constexpr size_t kDestinationBufferSize = 10 * 1024;
+    unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
+    static constexpr array<uint16_t, 4> source_data = { 1,2,3,4 };
+
+    CompressParametersOnMap parameters;
+    parameters.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING)] = CompressParameter(true);
+
+    size_t compressed_data_size = kDestinationBufferSize;
+    const bool success = ChunkedCompress::Compress(2, 2, 2 * sizeof(uint16_t), PixelType::Gray16, source_data.data(), compressed_data_buffer.get(), compressed_data_size, &parameters);
+
+    ASSERT_TRUE(success);
+    ASSERT_GT(compressed_data_size, 0);
+    ASSERT_LE(compressed_data_size, kDestinationBufferSize);
+
+    auto mem_blk = ChunkedCompress::CompressToMemoryBlock(2, 2, 2 * sizeof(uint16_t), PixelType::Gray16, source_data.data(), &parameters);
     ASSERT_EQ(compressed_data_size, mem_blk->GetSizeOfData()) << "Size of compressed data from CompressToMemoryBlock does not match size from Compress";
     ASSERT_EQ(memcmp(compressed_data_buffer.get(), mem_blk->GetPtr(), compressed_data_size), 0) << "Compressed data from CompressToMemoryBlock does not match data from Compress";
 }
@@ -218,6 +284,31 @@ TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallBgr48Bitmap
     ASSERT_EQ(compressed_data_size, mem_blk->GetSizeOfData()) << "Size of compressed data from CompressToMemoryBlock does not match size from Compress";
     ASSERT_EQ(memcmp(compressed_data_buffer.get(), mem_blk->GetPtr(), compressed_data_size), 0) << "Compressed data from CompressToMemoryBlock does not match data from Compress";
 }
+
+TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallBgr48BitmapWithHiLoBytePacking)
+{
+    // we compress a small Bgr48 bitmap with the chunked-compression encoder (where we enable hi-lo-byte-packing)
+   // with two different APIs and verify that the compressed output matches.
+
+    constexpr size_t kDestinationBufferSize = 10 * 1024;
+    unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
+    static constexpr array<uint16_t, 12> source_data = { 1,2,3,4,5,6,7,8,9,10,11,12 };
+
+    CompressParametersOnMap parameters;
+    parameters.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING)] = CompressParameter(true);
+
+    size_t compressed_data_size = kDestinationBufferSize;
+    const bool success = ChunkedCompress::Compress(2, 2, 2 * 3 * sizeof(uint16_t), PixelType::Bgr48, source_data.data(), compressed_data_buffer.get(), compressed_data_size, &parameters);
+
+    ASSERT_TRUE(success);
+    ASSERT_GT(compressed_data_size, 0);
+    ASSERT_LE(compressed_data_size, kDestinationBufferSize);
+
+    auto mem_blk = ChunkedCompress::CompressToMemoryBlock(2, 2, 2 * 3 * sizeof(uint16_t), PixelType::Bgr48, source_data.data(), &parameters);
+    ASSERT_EQ(compressed_data_size, mem_blk->GetSizeOfData()) << "Size of compressed data from CompressToMemoryBlock does not match size from Compress";
+    ASSERT_EQ(memcmp(compressed_data_buffer.get(), mem_blk->GetPtr(), compressed_data_size), 0) << "Compressed data from CompressToMemoryBlock does not match data from Compress";
+}
+
 
 struct ChunkedCompressionRoundTripParams
 {

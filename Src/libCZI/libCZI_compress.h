@@ -33,10 +33,12 @@ namespace libCZI
 
         CHUNKEDCOMPRESSION_MAXCHUNKSIZE = 4, ///< The maximum chunk size (in bytes) to be used for chunked compression (type: uint32). 
                                              ///< This parameter is used with the "chunked" compression scheme only.
-        CHUNKEDCOMPRESSION_CODEC = 5,        ///< The codec to be used for chunked compression (type: uint32, where the value is interpreted as a ChunkedCompressionHeaderHelper::Codec enum value). 
+        CHUNKEDCOMPRESSION_CODEC = 5,        ///< The codec to be used for chunked compression (type: int32, where the value is interpreted as a ChunkedCompressionHeaderHelper::Codec enum value). 
                                              ///< This parameter is used with the "chunked" compression scheme only.
         CHUNKEDCOMPRESSION_RAWCOMPRESSIONLEVEL_ZSTD = 6, ///< The "raw" zstd compression level aka "ExplicitLevel" (type: int32) to be used for chunked compression. If value is out-of-range, it will be clipped.
                                                          ///< This parameter is used with the "chunked" compression scheme only, and only if the codec for chunked compression is set to zstd.
+        CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING = 7, ///< Whether to do the "lo-hi-byte-unpacking" preprocessing (type: boolean) 
+                                                    ///< for chunked compression.
     };
 
     /// Simple variant type used for the compression-parameters-property-bag.
@@ -781,6 +783,7 @@ namespace libCZI
 
             /// This flag indicates whether the "hi-lo byte packing" preprocessing is applied to the data before compression.
             /// 0 means "no hi-lo byte packing", 1 means "hi-lo byte packing applied", everything else means: unspecified.
+            /// If the value is unspecified, then the corresponding header chunk is not included in the header.
             std::uint8_t hiLoBytePackingApplied;
 
             /// The sizes of the compressed chunks in bytes, one entry per chunk.

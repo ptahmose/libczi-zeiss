@@ -724,6 +724,7 @@ TEST(ZStdCompress, ParseCompressionHeaderScenario5)
     EXPECT_EQ(header_info.chunks[2].uncompressedSize, 9);
 
     EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::Lz4);
+    EXPECT_EQ(header_info.hiLoBytePackingApplied, false);
 }
 
 TEST(ZStdCompress, CreateCompressionHeaderScenario1)
@@ -751,4 +752,33 @@ TEST(ZStdCompress, CreateCompressionHeaderScenario1)
     EXPECT_EQ(header_info.chunks[3].compressedSize, 7);
     EXPECT_EQ(header_info.chunks[3].uncompressedSize, 11);
     EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::ZStd);
+    EXPECT_EQ(header_info.hiLoBytePackingApplied, false);
+}
+
+TEST(ZStdCompress, CreateCompressionHeaderScenario2)
+{
+    ChunkedCompressionHeaderHelper::HeaderInfoForCreation header_info_for_creation;
+    header_info_for_creation.codec = ChunkedCompressionHeaderHelper::Codec::ZStd;
+    header_info_for_creation.hiLoBytePackingApplied = 0x01;
+    header_info_for_creation.chunkSizes = { 4,5,6,7 };
+    header_info_for_creation.uncompressedSizes = { 10,11 };
+
+    uint8_t header_buffer[256] = { 0 };
+    size_t size = ChunkedCompressionHeaderHelper::CreateCompressionHeader(header_buffer, sizeof(header_buffer), header_info_for_creation);
+
+    const auto size_and_header_info = ChunkedCompressionHeaderHelper::ParseCompressionHeader(header_buffer, sizeof(header_buffer));
+    EXPECT_EQ(size, get<0>(size_and_header_info)) << "Size returned by CreateCompressionHeader does not match actual header size";
+
+    EXPECT_EQ(get<1>(size_and_header_info).chunks.size(), 4) << "Unexpected number of chunks in parsed header info";
+    const auto& header_info = get<1>(size_and_header_info);
+    EXPECT_EQ(header_info.chunks[0].compressedSize, 4);
+    EXPECT_EQ(header_info.chunks[0].uncompressedSize, 10);
+    EXPECT_EQ(header_info.chunks[1].compressedSize, 5);
+    EXPECT_EQ(header_info.chunks[1].uncompressedSize, 10);
+    EXPECT_EQ(header_info.chunks[2].compressedSize, 6);
+    EXPECT_EQ(header_info.chunks[2].uncompressedSize, 10);
+    EXPECT_EQ(header_info.chunks[3].compressedSize, 7);
+    EXPECT_EQ(header_info.chunks[3].uncompressedSize, 11);
+    EXPECT_EQ(header_info.codec, ChunkedCompressionHeaderHelper::Codec::ZStd);
+    EXPECT_EQ(header_info.hiLoBytePackingApplied, true);
 }
