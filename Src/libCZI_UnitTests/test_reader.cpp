@@ -611,9 +611,72 @@ namespace
         return make_tuple(data, size_data);
     }
 
+    tuple<shared_ptr<void>, size_t> CreateCziDocumentContainingOneSubblockChunkedCompressedWhichIsTooSmallWithHiLoBytePack()
+    {
+        // this creates a one-subblock CZI file, with a ChunkedExtensible-compressed subblock of characteristics "4x4, Gray16";
+        //  where the actual bitmap is only 2x3, and the subblock info says that it is 4x4.
+        constexpr int kBitmapWidth = 4;
+        constexpr int kBitmapHeight = 4;
+        constexpr PixelType kBitmapPixelType = PixelType::Gray16;
+
+        auto writer = CreateCZIWriter();
+        auto outStream = make_shared<CMemOutputStream>(0);
+        auto spWriterInfo = make_shared<CCziWriterInfo >(GUID{ 0x1234567,0x89ab,0xcdef,{ 1,2,3,4,5,6,7,8 } });
+        writer->Create(outStream, spWriterInfo);
+        auto bitmap = CreateTestBitmap(PixelType::Gray16, 2, 3);
+        {
+            ScopedBitmapLockerSP lockBm{ bitmap };
+            uint16_t* bitmap_pointer = static_cast<uint16_t*>(lockBm.ptrDataRoi);
+            bitmap_pointer[0] = 1;
+            bitmap_pointer[1] = 2;
+            bitmap_pointer = reinterpret_cast<uint16_t*>(static_cast<uint8_t*>(lockBm.ptrDataRoi) + lockBm.stride);
+            bitmap_pointer[0] = 3;
+            bitmap_pointer[1] = 4;
+            bitmap_pointer = reinterpret_cast<uint16_t*>(static_cast<uint8_t*>(lockBm.ptrDataRoi) + static_cast<size_t>(2) * lockBm.stride);
+            bitmap_pointer[0] = 5;
+            bitmap_pointer[1] = 6;
+        }
+
+        shared_ptr<IMemoryBlock> encodedData;
+        {
+            const ScopedBitmapLockerSP lck{ bitmap };
+            CompressParametersOnMap compression_parameters;
+            compression_parameters.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING)] = CompressParameter(true);
+            encodedData = ChunkedCompress::CompressToMemoryBlock(
+                bitmap->GetWidth(),
+                bitmap->GetHeight(),
+                lck.stride,
+                bitmap->GetPixelType(),
+                lck.ptrDataRoi,
+                &compression_parameters);
+        }
+
+        AddSubBlockInfoMemPtr addSbBlkInfo;
+        addSbBlkInfo.Clear();
+        addSbBlkInfo.coordinate = CDimCoordinate::Parse("C0");
+        addSbBlkInfo.mIndexValid = true;
+        addSbBlkInfo.mIndex = 0;
+        addSbBlkInfo.x = 0;
+        addSbBlkInfo.y = 0;
+        addSbBlkInfo.logicalWidth = kBitmapWidth;
+        addSbBlkInfo.logicalHeight = kBitmapHeight;
+        addSbBlkInfo.physicalWidth = kBitmapWidth;
+        addSbBlkInfo.physicalHeight = kBitmapHeight;
+        addSbBlkInfo.PixelType = kBitmapPixelType;
+        addSbBlkInfo.ptrData = encodedData->GetPtr();
+        addSbBlkInfo.dataSize = encodedData->GetSizeOfData();
+        addSbBlkInfo.SetCompressionMode(CompressionMode::ChunkedExtensible);
+        writer->SyncAddSubBlock(addSbBlkInfo);
+        writer->Close();
+
+        size_t size_data;
+        const auto data = outStream->GetCopy(&size_data);
+        return make_tuple(data, size_data);
+    }
+
     tuple<shared_ptr<void>, size_t> CreateCziDocumentContainingOneSubblockChunkedCompressedWhichIsTooLargeWithHiLoBytePack()
     {
-        // this creates a one-subblock CZI file, with a Zstd1-compressed subblock of characteristics "4x4, Gray16";
+        // this creates a one-subblock CZI file, with a ChunkedExtensible-compressed subblock of characteristics "4x4, Gray16";
         //  where the actual bitmap is 5x5, and the subblock info says that it is 4x4.
         constexpr int kBitmapWidth = 4;
         constexpr int kBitmapHeight = 4;
@@ -1545,4 +1608,81 @@ TEST(CziReader, ReadSubBlockWithChunkedCompressionWithHiLoBytePackTooLargeEnable
             EXPECT_EQ(bitmap_pointer[x], y * 4 + x + 1);
         }
     }
+}
+
+TEST(CziReader, ReadSubBlockWithChunkedCompressionWithHiLoBytePackTooSmallEnableResolutionAndCheckResolutionProtocol)
+{
+    // arrange
+    auto test_czi = CreateCziDocumentContainingOneSubblockChunkedCompressedWhichIsTooSmallWithHiLoBytePack();
+
+    // act
+    auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    // assert
+    const auto sub_block = reader->ReadSubBlock(0);
+
+    CreateBitmapOptions options;
+    options.handle_zstd_data_size_mismatch = true;
+    auto bitmap = sub_block->CreateBitmap(&options);
+    ASSERT_EQ(bitmap->GetWidth(), 4) << "Incorrect width";
+    ASSERT_EQ(bitmap->GetHeight(), 4) << "Incorrect height";
+    ASSERT_EQ(bitmap->GetPixelType(), PixelType::Gray16) << "Incorrect pixel type";
+
+    ScopedBitmapLockerSP locked_bitmap{ bitmap };
+    const uint16_t* bitmap_pointer = static_cast<const uint16_t*>(locked_bitmap.ptrDataRoi);
+    EXPECT_EQ(bitmap_pointer[0], 1);
+    EXPECT_EQ(bitmap_pointer[1], 2);
+    EXPECT_EQ(bitmap_pointer[2], 3);
+    EXPECT_EQ(bitmap_pointer[3], 4);
+    bitmap_pointer = reinterpret_cast<const uint16_t*>(static_cast<const uint8_t*>(locked_bitmap.ptrDataRoi) + locked_bitmap.stride);
+    EXPECT_EQ(bitmap_pointer[0], 5);
+    EXPECT_EQ(bitmap_pointer[1], 6);
+
+    // and the remainder has to be zero-filled
+    for (int y = 1; y < 4; ++y)
+    {
+        bitmap_pointer = reinterpret_cast<const uint16_t*>(static_cast<const uint8_t*>(locked_bitmap.ptrDataRoi) + static_cast<size_t>(y) * locked_bitmap.stride);
+        for (int x = y == 1 ? 2 : 0; x < 4; ++x)
+        {
+            EXPECT_EQ(bitmap_pointer[x], 0);
+        }
+    }
+}
+
+TEST(CziReader, ReadSubBlockWithChunkedCompressionWithHiLoBytePackTooLargeDisableResolutionAndCheckException)
+{
+    // arrange
+    const auto test_czi = CreateCziDocumentContainingOneSubblockChunkedCompressedWhichIsTooLargeWithHiLoBytePack();
+
+    // act
+    auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    // assert
+    const auto sub_block = reader->ReadSubBlock(0);
+
+    CreateBitmapOptions options;
+    options.handle_chunked_compression_data_size_mismatch = false;
+    EXPECT_THROW(sub_block->CreateBitmap(&options), exception);
+}
+
+TEST(CziReader, ReadSubBlockWithChunkedCompressionWithHiLoBytePackTooSmallDisableResolutionAndCheckException)
+{
+    // arrange
+    const auto test_czi = CreateCziDocumentContainingOneSubblockChunkedCompressedWhichIsTooSmallWithHiLoBytePack();
+
+    // act
+    const auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    // assert
+    const auto sub_block = reader->ReadSubBlock(0);
+
+    CreateBitmapOptions options;
+    options.handle_chunked_compression_data_size_mismatch = false;
+    EXPECT_THROW(sub_block->CreateBitmap(&options), exception);
 }
