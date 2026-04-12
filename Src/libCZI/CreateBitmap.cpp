@@ -8,6 +8,7 @@
 #include "BitmapOperations.h"
 #include "inc_libCZI_Config.h"
 #include "CziSubBlock.h"
+#include "decoder_chunkedcompression.h"
 #include "decoder_zstd.h"
 
 using namespace libCZI;
@@ -353,7 +354,8 @@ static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlockData_Chunked
     size_t size,
     libCZI::PixelType pixelType,
     std::uint32_t width,
-    std::uint32_t height)
+    std::uint32_t height,
+    bool handle_chunked_compression_data_size_mismatch)
 {
     auto dec = GetSite()->GetDecoder(ImageDecoderType::ChunkedCompression, nullptr);
     return dec->Decode(
@@ -362,7 +364,7 @@ static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlockData_Chunked
                     pixelType,
                     width,
                     height,
-                    nullptr);
+                    handle_chunked_compression_data_size_mismatch ? CChunkedCompressionDecoder::kOption_handle_data_size_mismatch : nullptr);
 }
 
 static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_ChunkedExtensible(ISubBlock* subBlk, bool handle_uncompressed_data_size_mismatch)
@@ -370,7 +372,7 @@ static std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_ChunkedExte
     const void* ptr;
     size_t size;
     subBlk->DangerousGetRawData(ISubBlock::MemBlkType::Data, ptr, size);
-    return CreateBitmapFromSubBlockData_ChunkedExtensible(ptr, size, subBlk->GetSubBlockInfo().pixelType, subBlk->GetSubBlockInfo().physicalSize.w, subBlk->GetSubBlockInfo().physicalSize.h/*, handle_zstd_data_size_mismatch*/);
+    return CreateBitmapFromSubBlockData_ChunkedExtensible(ptr, size, subBlk->GetSubBlockInfo().pixelType, subBlk->GetSubBlockInfo().physicalSize.w, subBlk->GetSubBlockInfo().physicalSize.h, handle_uncompressed_data_size_mismatch);
 }
 
 std::shared_ptr<libCZI::IBitmapData> libCZI::CreateBitmapFromSubBlock(ISubBlock* subBlk, const CreateBitmapOptions* options)
@@ -421,7 +423,7 @@ std::shared_ptr<libCZI::IBitmapData> libCZI::CreateBitmapFromSubBlockData(
         return CreateBitmapFromSubBlockData_Uncompressed(pv, size, pixelType, width, height, options != nullptr ? options->handle_uncompressed_data_size_mismatch : true);
        // return CreateBitmapFromCompressedData_Uncompressed(pv, size, pixelType, width, height);
     case CompressionMode::ChunkedExtensible:
-        return CreateBitmapFromSubBlockData_ChunkedExtensible(pv, size, pixelType, width, height);
+        return CreateBitmapFromSubBlockData_ChunkedExtensible(pv, size, pixelType, width, height, options != nullptr ? options->handle_chunked_compression_data_size_mismatch : true);
     default:
         throw std::logic_error("The specified compression mode is not supported or implemented.");
     }

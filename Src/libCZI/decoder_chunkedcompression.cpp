@@ -44,6 +44,7 @@ namespace
 }
 
 /*static*/const char* CChunkedCompressionDecoder::kOption_IgnorePreprocessingInstruction = "IgnorePreprocessingInstruction";
+/*static*/const char* CChunkedCompressionDecoder::kOption_handle_data_size_mismatch = "handle_data_size_mismatch";
 
 /*static*/std::shared_ptr<CChunkedCompressionDecoder> CChunkedCompressionDecoder::Create()
 {
@@ -89,7 +90,18 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         return CChunkedCompressionDecoder::DecodeSizeMatchesExactly(decode_information);
     }
 
-    throw runtime_error("Not yet implemented: The size of the decompressed data does not match the expected size calculated from width, height and pixel type. The resolution protocol is not yet implemented.");
+    const bool handle_data_size_mismatch = Utilities::ContainsToken(additional_arguments, CChunkedCompressionDecoder::kOption_handle_data_size_mismatch);
+    if (!handle_data_size_mismatch)
+    {
+        stringstream ss;
+        ss << "chunked-compressed data has unexpected size. Expected: " << expected_size << ", actual: " << total_size_of_decompressed_data;
+        throw runtime_error(ss.str());
+    }
+
+    DecodeInformation decode_information{ *pixelType, *width, *height, ptrData, size, std::move(size_and_header_info) };
+    return CChunkedCompressionDecoder::DecodeSizeMatchesHandleSizeMismatch(decode_information, total_size_of_decompressed_data);
+
+    //throw runtime_error("Not yet implemented: The size of the decompressed data does not match the expected size calculated from width, height and pixel type. The resolution protocol is not yet implemented.");
 }
 
 /*static*/std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::DecodeSizeMatchesExactly(const DecodeInformation& decode_information)
@@ -113,7 +125,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
     // now - decode the chunks, one by one, directly into the bitmap (we can do this because we know that 
     //   the total size of the decompressed data matches the expected size of the bitmap)
 
-    uint64_t source_offset = get<0>(decode_information.chunk_header_info);  // chunk-data starts after the chunk-header, so we start reading from there
+    const uint64_t source_offset = get<0>(decode_information.chunk_header_info);  // chunk-data starts after the chunk-header, so we start reading from there
     auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(bitmap);
 
     if (get<1>(decode_information.chunk_header_info).hiLoBytePackingApplied)
@@ -204,7 +216,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
                 staging_buffer.size(),
                 static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
                 chunk.compressedSize);
-            
+
             if (ZSTD_isError(decompressed_size))
             {
                 throw runtime_error("ZStd decompression of chunk failed.");
@@ -250,5 +262,69 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
         destination_offset += chunk.uncompressedSize;
         source_offset += chunk.compressedSize;
+    }
+}
+
+/*static*/std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::DecodeSizeMatchesHandleSizeMismatch(const DecodeInformation& decode_information, size_t total_size_of_decompressed_data)
+{
+    // first - we check whether the compressed chunk sizes are valid (i.e. that they do not exceed the total size of the data)
+    if (!CheckIfCompressedChunkSizesAreValid(decode_information.chunk_header_info, decode_information.size_subblock_data))
+    {
+        throw runtime_error("The compressed chunk sizes reported in the header do not match the total size of the data.");
+    }
+
+    // calculate the expected size of the uncompressed data
+    const size_t stride = decode_information.width * static_cast<size_t>(Utils::GetBytesPerPixel(decode_information.pixelType));
+    if (stride == 0 || stride > numeric_limits<uint32_t>::max())
+    {
+        throw runtime_error("Invalid stride calculated from width and pixel type.");
+    }
+
+    const size_t expected_size = decode_information.height * stride;
+    const uint64_t source_offset = get<0>(decode_information.chunk_header_info);  // chunk-data starts after the chunk-header, so we start reading from there
+
+    auto bitmap = CStdBitmapData::Create(decode_information.pixelType, decode_information.width, decode_information.height, static_cast<uint32_t>(stride));
+
+    if (total_size_of_decompressed_data < expected_size)
+    {
+        // sizes mismatch, and the decoded size is less than expected - so we need to decode and then fill up with zeroes
+        auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(bitmap);
+
+        if (get<1>(decode_information.chunk_header_info).hiLoBytePackingApplied)
+        {
+            CChunkedCompressionDecoder::DecompressLoHiBytePackingPreprocessing(decode_information, source_offset, bitmap_lock_info.ptrDataRoi, bitmap_lock_info.size);
+        }
+        else
+        {
+            CChunkedCompressionDecoder::DecompressNoPreprocessing(decode_information, source_offset, bitmap_lock_info.ptrDataRoi, bitmap_lock_info.size);
+        }
+
+        // fill up the rest with zeroes
+        memset(static_cast<uint8_t*>(bitmap_lock_info.ptrDataRoi) + total_size_of_decompressed_data, 0, expected_size - total_size_of_decompressed_data);
+        return bitmap;
+    }
+    else
+    {
+        // sizes mismatch, and the decoded size is larger than expected - we need to decode to a temporary buffer, and
+           // copy from there into the bitmap
+        unique_ptr<void, decltype(&free)> temporary_buffer(malloc(total_size_of_decompressed_data), free);
+        if (temporary_buffer == nullptr)
+        {
+            throw runtime_error("Failed to allocate temporary buffer for Zstd-decompression.");
+        }
+
+        if (get<1>(decode_information.chunk_header_info).hiLoBytePackingApplied)
+        {
+            CChunkedCompressionDecoder::DecompressLoHiBytePackingPreprocessing(decode_information, source_offset, temporary_buffer.get(), total_size_of_decompressed_data);
+        }
+        else
+        {
+            CChunkedCompressionDecoder::DecompressNoPreprocessing(decode_information, source_offset, temporary_buffer.get(), total_size_of_decompressed_data);
+        }
+
+        auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(bitmap);
+        memcpy(bitmap_lock_info.ptrDataRoi, temporary_buffer.get(), expected_size);
+
+        return bitmap;
     }
 }

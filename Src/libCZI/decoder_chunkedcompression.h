@@ -48,11 +48,13 @@ namespace libCZI
             };
 
             static std::shared_ptr<libCZI::IBitmapData> DecodeSizeMatchesExactly(const DecodeInformation& decode_information);
+            static std::shared_ptr<libCZI::IBitmapData> DecodeSizeMatchesHandleSizeMismatch(const DecodeInformation& decode_information, size_t total_size_of_decompressed_data);
 
             static void DecompressNoPreprocessing(const DecodeInformation& decode_information, uint64_t source_offset, void* destination, size_t size_destination);
             static void DecompressLoHiBytePackingPreprocessing(const DecodeInformation& decode_information, uint64_t source_offset, void* destination, size_t size_destination);
-
+        public:
             static const char* kOption_IgnorePreprocessingInstruction;
+            static const char* kOption_handle_data_size_mismatch;
         };
     }
 }
