@@ -11,24 +11,24 @@
 using namespace std;
 using namespace libCZI;
 
-void libCZI::detail::CompressionUtilities::CheckSourceBitmapArgumentsAndThrow(std::uint32_t sourceWidth, std::uint32_t sourceHeight, std::uint32_t sourceStride, libCZI::PixelType sourcePixeltype, const void* source)
+void libCZI::detail::CompressionUtilities::CheckSourceBitmapArgumentsAndThrow(std::uint32_t source_width, std::uint32_t source_height, std::uint32_t source_stride, libCZI::PixelType source_pixeltype, const void* source)
 {
-    if (sourceWidth == 0)
+    if (source_width == 0)
     {
         throw invalid_argument("width must be greater than zero");
     }
 
-    if (sourceHeight == 0)
+    if (source_height == 0)
     {
         throw invalid_argument("height must be greater than zero");
     }
 
     // note: GetBytesPerPixel will throw (an invalid_argument-exception) in case of an invalid enum value
-    if (sourceStride < sourceWidth * Utils::GetBytesPerPixel(sourcePixeltype))
+    if (source_stride < source_width * Utils::GetBytesPerPixel(source_pixeltype))
     {
         stringstream ss;
-        ss << "stride is illegal, for width=" << sourceWidth << " and pixeltype=" << Utils::PixelTypeToInformalString(sourcePixeltype) << " the minimum stride is "
-            << sourceWidth * Utils::GetBytesPerPixel(sourcePixeltype) << " whereas " << sourceStride << " was specified.";
+        ss << "stride is illegal, for width=" << source_width << " and pixeltype=" << Utils::PixelTypeToInformalString(source_pixeltype) << " the minimum stride is "
+            << source_width * Utils::GetBytesPerPixel(source_pixeltype) << " whereas " << source_stride << " was specified.";
         throw invalid_argument(ss.str());
     }
 
@@ -38,29 +38,29 @@ void libCZI::detail::CompressionUtilities::CheckSourceBitmapArgumentsAndThrow(st
     }
 }
 
-void libCZI::detail::CompressionUtilities::CheckDestinationArgumentsAndThrow(const void* destination, size_t sizeDestination, size_t minSizeOfDestination)
+void libCZI::detail::CompressionUtilities::CheckDestinationArgumentsAndThrow(const void* destination, size_t size_destination, size_t min_size_of_destination)
 {
     if (destination == nullptr)
     {
         throw invalid_argument("destination must not be null.");
     }
 
-    if (sizeDestination < minSizeOfDestination)
+    if (size_destination < min_size_of_destination)
     {
         stringstream ss;
-        ss << "sizeDestination must be greater than or equal to " << minSizeOfDestination << ", whereas " << sizeDestination << " was specified.";
+        ss << "sizeDestination must be greater than or equal to " << min_size_of_destination << ", whereas " << size_destination << " was specified.";
         throw invalid_argument(ss.str());
     }
 }
 
-void libCZI::detail::CompressionUtilities::CheckTempBufferAllocArgumentsAndThrow(const std::function<void* (size_t)>& allocateTempBuffer, const std::function<void(void*)>& freeTempBuffer)
+void libCZI::detail::CompressionUtilities::CheckTempBufferAllocArgumentsAndThrow(const std::function<void* (size_t)>& allocate_temp_buffer, const std::function<void(void*)>& free_temp_buffer)
 {
-    if (!allocateTempBuffer)
+    if (!allocate_temp_buffer)
     {
         throw invalid_argument("A function for allocating temp memory must be given.");
     }
 
-    if (!freeTempBuffer)
+    if (!free_temp_buffer)
     {
         throw invalid_argument("A function for freeing temp memory must be given.");
     }
