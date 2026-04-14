@@ -139,6 +139,8 @@ namespace libCZI
         /// If false, an exception is thrown  (in case of a discrepancy).
         bool handle_zstd_data_size_mismatch{ true };
 
+        /// In case of chunked-compression compressed pixel data, apply the resolution protocol for chunked-compression-compressed data.
+        /// If false, an exception is thrown  (in case of a discrepancy).
         bool handle_chunked_compression_data_size_mismatch{ true };
     };
 
@@ -149,6 +151,19 @@ namespace libCZI
     /// \returns    The newly allocated bitmap containing the image from the sub-block.
     LIBCZI_API std::shared_ptr<IBitmapData>  CreateBitmapFromSubBlock(ISubBlock* subBlk, const CreateBitmapOptions* options = nullptr);
 
+    /// Creates a bitmap from raw compressed data, bypassing the need for an ISubBlock object.
+    /// This is the low-level counterpart of CreateBitmapFromSubBlock, intended for cases where
+    /// the compressed data and its associated metadata are already available separately.
+    /// \param  compression_mode    The compression mode identifying the codec of the data pointed to by \p pv.
+    /// \param  pv                  Pointer to the compressed data; must not be null.
+    /// \param  size                The size of the compressed data in bytes.
+    /// \param  pixelType           The pixel type of the bitmap to be decoded.
+    /// \param  width               The width of the expected bitmap in pixels.
+    /// \param  height              The height of the expected bitmap in pixels.
+    /// \param  options             (Optional) Options for controlling the operation. This controls how discrepancies
+    ///                             between the actual pixel data and the specified dimensions are handled. This argument
+    ///                             may be null, in which case the resolution protocol is applied for all discrepancy types.
+    /// \returns    The newly allocated bitmap containing the decoded image data.
     LIBCZI_API std::shared_ptr<IBitmapData> CreateBitmapFromSubBlockData(libCZI::CompressionMode compression_mode, const void* pv, size_t size, libCZI::PixelType pixelType, std::uint32_t width, std::uint32_t height, const CreateBitmapOptions* options = nullptr);
 
     /// Creates metadata-object from a metadata segment.
