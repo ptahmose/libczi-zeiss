@@ -209,7 +209,7 @@ namespace
 
         if (expected_size <= size
 #if LIBCZI_ISBIGENDIANHOST
-            && !CziUtils::IsPixelTypeEndianessAgnostic(subBlk->GetSubBlockInfo().pixelType)
+            && CziUtils::IsPixelTypeEndianessAgnostic(subBlk->GetSubBlockInfo().pixelType)
 #endif
             )
         {
