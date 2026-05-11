@@ -53,6 +53,7 @@ jobs:
         # on Linux, we use apt to get our dependencies
         shell: bash
         run: |
+          sudo apt-get update
           sudo apt-get install zlib1g-dev -y
           sudo apt-get install libpng-dev -y
           sudo apt-get install libfreetype6-dev -y
