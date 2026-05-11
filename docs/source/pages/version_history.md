@@ -54,3 +54,4 @@ Version history
  0.67.3             | [158](https://github.com/ZEISS/libczi/pull/158)      | have all internal code in its own namespace `libCZI::detail`, update vendored pugixml to version 1.15, fix issue with big-endian-machines
  0.67.4             | [158](https://github.com/ZEISS/libczi/pull/159)      | remove version requirement for external eigen3 package
  0.67.5             | [167](https://github.com/ZEISS/libczi/pull/167)      | fix bug with zstd1-decoding in case of pixeltype BGR48
+ 0.67.6             | [168](https://github.com/ZEISS/libczi/pull/168)      | fix CI/CD build
