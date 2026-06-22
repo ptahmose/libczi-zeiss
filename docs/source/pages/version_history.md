@@ -55,3 +55,4 @@ Version history
  0.67.4             | [159](https://github.com/ZEISS/libczi/pull/159)      | remove version requirement for external eigen3 package
  0.67.5             | [168](https://github.com/ZEISS/libczi/pull/168)      | fix bug with zstd1-decoding in case of pixeltype BGR48
  0.67.6             | [169](https://github.com/ZEISS/libczi/pull/169)      | fix CI/CD build
+ 0.68.0             | [170](https://github.com/ZEISS/libczi/pull/170)      | improve CMake packaging and downstream build integration; add small API additions
