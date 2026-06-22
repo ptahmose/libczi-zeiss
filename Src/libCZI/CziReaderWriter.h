@@ -60,6 +60,7 @@ namespace libCZI
             void EnumerateAttachments(const std::function<bool(int index, const libCZI::AttachmentInfo& info)>& funcEnum) override;
             void EnumerateSubset(const char* contentFileType, const char* name, const std::function<bool(int index, const libCZI::AttachmentInfo& info)>& funcEnum) override;
             std::shared_ptr<libCZI::IAttachment> ReadAttachment(int index) override;
+            libCZI::AttachmentStatistics GetAttachmentStatistics() override;
 
         private:
             void Finish();

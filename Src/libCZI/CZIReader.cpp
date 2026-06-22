@@ -318,6 +318,14 @@ CCZIReader::CCZIReader() :
     return this->ReadAttachment(entry);
 }
 
+/*virtual*/AttachmentStatistics CCZIReader::GetAttachmentStatistics()
+{
+    this->ThrowIfNotOperational();
+    AttachmentStatistics statistics;
+    statistics.attachmentsCount = this->attachmentDir.GetAttachmentCount();
+    return statistics;
+}
+
 std::shared_ptr<ISubBlock> CCZIReader::ReadSubBlock(const CCziSubBlockDirectory::SubBlkEntry& entry)
 {
     const CCZIParse::SubBlockStorageAllocate allocateInfo{ ::malloc, ::free };

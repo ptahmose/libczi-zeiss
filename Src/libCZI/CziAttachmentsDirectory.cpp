@@ -66,6 +66,12 @@ bool CCziAttachmentsDirectory::TryGetAttachment(int index, AttachmentEntry& entr
     return false;
 }
 
+
+int CCziAttachmentsDirectory::GetAttachmentCount() const
+{
+    return static_cast<int>(this->attachmentEntries.size());
+}
+
 //-----------------------------------------------------------------------------
 
 bool CWriterCziAttachmentsDirectory::TryAddAttachment(const AttachmentEntry& entry)
