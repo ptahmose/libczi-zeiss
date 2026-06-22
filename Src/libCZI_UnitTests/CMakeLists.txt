@@ -57,4 +57,10 @@ set_target_properties(libCZI_UnitTests PROPERTIES CXX_STANDARD 14)
 
 target_compile_definitions(libCZI_UnitTests PRIVATE _LIBCZISTATICLIB)
 
-add_test(NAME libCZI_UnitTests COMMAND libCZI_UnitTests)
+include(GoogleTest)
+
+if(CMAKE_CROSSCOMPILING)
+    add_test(NAME libCZI_UnitTests COMMAND libCZI_UnitTests)
+else()
+    gtest_discover_tests(libCZI_UnitTests)
+endif()

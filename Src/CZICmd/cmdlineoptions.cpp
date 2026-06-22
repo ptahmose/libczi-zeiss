@@ -19,9 +19,7 @@
 #include "IBitmapGen.h"
 #include <iomanip>
 
-#include <CLI/App.hpp>
-#include <CLI/Formatter.hpp>
-#include <CLI/Config.hpp>
+#include <CLI/CLI.hpp>
 
 using namespace std;
 
