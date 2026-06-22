@@ -262,7 +262,7 @@ std::shared_ptr<libCZI::IBitmapData> libCZI::CreateBitmapFromSubBlockData(
         std::uint32_t height,
         const CreateBitmapOptions* options)
 {
-    switch (compression_mode)  // NOLINT(clang-diagnostic-switch-enum)
+    switch (compression_mode)
     {
     case CompressionMode::JpgXr:
         return CreateBitmapFromSubBlockData_JpgXr(pv, size, pixelType, width, height, options != nullptr ? options->handle_jpgxr_bitmap_mismatch : true);
