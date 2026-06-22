@@ -227,5 +227,5 @@ jobs:
           verbose: true
           # Only one flag to be safe with
           # https://docs.codecov.com/docs/flags#one-to-one-relationship-of-flags-to-uploads
-          flags: ${{matrix.OS}}
+          flags: ${{matrix.os}}
           token: ${{ secrets.CODECOV_TOKEN }}
