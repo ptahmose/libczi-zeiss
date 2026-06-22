@@ -1452,3 +1452,159 @@ TEST(CziReader, ReadSubBlockWithZstd1CompressionWithHiLoBytePackTooLargeDisableR
     options.handle_zstd_data_size_mismatch = false;
     EXPECT_THROW(sub_block->CreateBitmap(&options), exception);
 }
+
+TEST(CziReader, CreateBitmapFromSubBlockDataUncompressedMatchesCreateBitmapFromSubBlock)
+{
+    // arrange
+    const auto test_czi = CreateCziDocumentOneSubblock4x4Gray8();
+    const auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    const auto sub_block = reader->ReadSubBlock(0);
+    const auto& sub_block_info = sub_block->GetSubBlockInfo();
+
+    size_t data_size = 0;
+    const auto raw_data = sub_block->GetRawData(ISubBlock::MemBlkType::Data, &data_size);
+
+    // act
+    const auto bitmap_from_sub_block = sub_block->CreateBitmap();
+    const auto bitmap_from_data = CreateBitmapFromSubBlockData(
+        sub_block_info.GetCompressionMode(),
+        raw_data.get(),
+        data_size,
+        sub_block_info.pixelType,
+        sub_block_info.physicalSize.w,
+        sub_block_info.physicalSize.h);
+
+    // assert
+    EXPECT_TRUE(AreBitmapDataEqual(bitmap_from_sub_block, bitmap_from_data));
+}
+
+TEST(CziReader, CreateBitmapFromSubBlockDataUncompressedTooShortEnableResolutionAndCheckZeroFill)
+{
+    // arrange
+    const auto test_czi = CreateCziDocumentContainingOneSubblockWhichIsTooShort();
+    const auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    const auto sub_block = reader->ReadSubBlock(0);
+    const auto& sub_block_info = sub_block->GetSubBlockInfo();
+
+    size_t data_size = 0;
+    const auto raw_data = sub_block->GetRawData(ISubBlock::MemBlkType::Data, &data_size);
+
+    CreateBitmapOptions options;
+    options.handle_uncompressed_data_size_mismatch = true;
+
+    // act
+    const auto bitmap = CreateBitmapFromSubBlockData(
+        sub_block_info.GetCompressionMode(),
+        raw_data.get(),
+        data_size,
+        sub_block_info.pixelType,
+        sub_block_info.physicalSize.w,
+        sub_block_info.physicalSize.h,
+        &options);
+
+    // assert
+    ASSERT_EQ(bitmap->GetWidth(), 4);
+    ASSERT_EQ(bitmap->GetHeight(), 4);
+    ASSERT_EQ(bitmap->GetPixelType(), PixelType::Gray8);
+
+    ScopedBitmapLockerSP locked_bitmap{ bitmap };
+    const uint8_t* bitmap_pointer = static_cast<const uint8_t*>(locked_bitmap.ptrDataRoi);
+
+    for (int y = 0; y < 4; ++y)
+    {
+        for (int x = 0; x < 4; ++x)
+        {
+            const int linear_index = x + y * 4;
+            const uint8_t expected_value = linear_index <= 10 ? static_cast<uint8_t>(linear_index) : 0;
+            EXPECT_EQ(bitmap_pointer[x + static_cast<size_t>(y) * locked_bitmap.stride], expected_value);
+        }
+    }
+}
+
+TEST(CziReader, CreateBitmapFromSubBlockDataUncompressedTooShortDisableResolutionAndCheckException)
+{
+    // arrange
+    const auto test_czi = CreateCziDocumentContainingOneSubblockWhichIsTooShort();
+    const auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    const auto sub_block = reader->ReadSubBlock(0);
+    const auto& sub_block_info = sub_block->GetSubBlockInfo();
+
+    size_t data_size = 0;
+    const auto raw_data = sub_block->GetRawData(ISubBlock::MemBlkType::Data, &data_size);
+
+    CreateBitmapOptions options;
+    options.handle_uncompressed_data_size_mismatch = false;
+
+    // act/assert
+    EXPECT_THROW(
+        CreateBitmapFromSubBlockData(
+            sub_block_info.GetCompressionMode(),
+            raw_data.get(),
+            data_size,
+            sub_block_info.pixelType,
+            sub_block_info.physicalSize.w,
+            sub_block_info.physicalSize.h,
+            &options),
+        logic_error);
+}
+
+TEST(CziReader, CreateBitmapFromSubBlockDataZstd0TooSmallEnableResolutionAndCheckZeroFill)
+{
+    // arrange
+    const auto test_czi = CreateCziDocumentContainingOneSubblockZstd0CompressedWhichIsTooSmall();
+    const auto input_stream = CreateStreamFromMemory(get<0>(test_czi), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    const auto sub_block = reader->ReadSubBlock(0);
+    const auto& sub_block_info = sub_block->GetSubBlockInfo();
+
+    size_t data_size = 0;
+    const auto raw_data = sub_block->GetRawData(ISubBlock::MemBlkType::Data, &data_size);
+
+    CreateBitmapOptions options;
+    options.handle_zstd_data_size_mismatch = true;
+
+    // act
+    const auto bitmap = CreateBitmapFromSubBlockData(
+        sub_block_info.GetCompressionMode(),
+        raw_data.get(),
+        data_size,
+        sub_block_info.pixelType,
+        sub_block_info.physicalSize.w,
+        sub_block_info.physicalSize.h,
+        &options);
+
+    // assert
+    ASSERT_EQ(bitmap->GetWidth(), 4);
+    ASSERT_EQ(bitmap->GetHeight(), 4);
+    ASSERT_EQ(bitmap->GetPixelType(), PixelType::Gray8);
+
+    ScopedBitmapLockerSP locked_bitmap{ bitmap };
+    const uint8_t* bitmap_pointer = static_cast<const uint8_t*>(locked_bitmap.ptrDataRoi);
+
+    EXPECT_EQ(bitmap_pointer[0 + 0 * locked_bitmap.stride], 1);
+    EXPECT_EQ(bitmap_pointer[1 + 0 * locked_bitmap.stride], 2);
+    EXPECT_EQ(bitmap_pointer[2 + 0 * locked_bitmap.stride], 3);
+    EXPECT_EQ(bitmap_pointer[3 + 0 * locked_bitmap.stride], 4);
+    EXPECT_EQ(bitmap_pointer[0 + 1 * locked_bitmap.stride], 5);
+    EXPECT_EQ(bitmap_pointer[1 + 1 * locked_bitmap.stride], 6);
+
+    for (int y = 1; y < 4; ++y)
+    {
+        bitmap_pointer = static_cast<const uint8_t*>(locked_bitmap.ptrDataRoi) + static_cast<size_t>(y) * locked_bitmap.stride;
+        for (int x = y == 1 ? 2 : 0; x < 4; ++x)
+        {
+            EXPECT_EQ(bitmap_pointer[x], 0);
+        }
+    }
+}

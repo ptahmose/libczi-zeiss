@@ -1548,3 +1548,36 @@ TEST(CziReaderWriter, TryGetSubBlockInfoOfArbitrarySubBlockInChannel)
     b = reader_writer->TryGetSubBlockInfoOfArbitrarySubBlockInChannel(1, sub_block_info);
     EXPECT_FALSE(b);
 }
+TEST(CziReaderWriter, AttachmentStatisticsEmptyDocument)
+{
+    // arrange
+    const auto test_czi = CreateTestCzi();
+
+    const auto input_stream = make_shared<CMemInputOutputStream>(get<0>(test_czi).get(), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    // act
+    const auto statistics = reader->GetAttachmentStatistics();
+
+    // assert
+    EXPECT_EQ(statistics.attachmentsCount, 0);
+    EXPECT_EQ(reader->GetAttachmentCount(), 0);
+}
+
+TEST(CziReaderWriter, AttachmentStatisticsOneAttachment)
+{
+    // arrange
+    const auto test_czi = CreateTestCzi2();
+
+    const auto input_stream = make_shared<CMemInputOutputStream>(get<0>(test_czi).get(), get<1>(test_czi));
+    const auto reader = CreateCZIReader();
+    reader->Open(input_stream);
+
+    // act
+    const auto statistics = reader->GetAttachmentStatistics();
+
+    // assert
+    EXPECT_EQ(statistics.attachmentsCount, 1);
+    EXPECT_EQ(reader->GetAttachmentCount(), 1);
+}
