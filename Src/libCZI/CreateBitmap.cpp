@@ -46,8 +46,8 @@ namespace
                 // create a bitmap of the size described in the subblock
                 auto adjusted_bitmap = CStdBitmapData::Create(pixelType, width, height);
                 CBitmapOperations::Fill(adjusted_bitmap.get(), RgbFloatColor{ 0,0,0 });
-                auto adjusted_bitmap_lock = adjusted_bitmap->Lock();
-                auto decoded_bitmap_lock = decoded_bitmap->Lock();
+                const ScopedBitmapLockerSP adjusted_bitmap_lock{ adjusted_bitmap };
+                const ScopedBitmapLockerSP decoded_bitmap_lock{ decoded_bitmap };
                 CBitmapOperations::CopyWithOffsetInfo copy_info;
                 copy_info.xOffset = 0;
                 copy_info.yOffset = 0;
@@ -63,8 +63,6 @@ namespace
                 copy_info.dstHeight = adjusted_bitmap->GetHeight();
                 copy_info.drawTileBorder = false;
                 CBitmapOperations::CopyWithOffset(copy_info);
-                adjusted_bitmap->Unlock();
-                decoded_bitmap->Unlock();
                 return adjusted_bitmap;
             }
         }
