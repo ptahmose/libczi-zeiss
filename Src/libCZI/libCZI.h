@@ -147,7 +147,7 @@ namespace libCZI
     /// \returns    The newly allocated bitmap containing the image from the sub-block.
     LIBCZI_API std::shared_ptr<IBitmapData>  CreateBitmapFromSubBlock(ISubBlock* subBlk, const CreateBitmapOptions* options = nullptr);
 
-    /// Creates a bitmap from raw compressed data, bypassing the need for an ISubBlock object.
+    /// Creates a bitmap from raw sub-block payload data, bypassing the need for an ISubBlock object.
     /// This is the low-level counterpart of CreateBitmapFromSubBlock, intended for cases where
     /// the compressed data and its associated metadata are already available separately.
     /// \param  compression_mode    The compression mode identifying the codec of the data pointed to by \p pv.
@@ -752,7 +752,7 @@ namespace libCZI
 
         /// Gets statistics about the attachments in the document.
         /// \returns The attachment statistics.
-        virtual AttachmentStatistics GetAttachmentStatistics() = 0;
+        virtual AttachmentStatistics GetAttachmentStatistics() const = 0;
 
         virtual ~IAttachmentRepository() = default;
     };

@@ -318,7 +318,7 @@ CCZIReader::CCZIReader() :
     return this->ReadAttachment(entry);
 }
 
-/*virtual*/AttachmentStatistics CCZIReader::GetAttachmentStatistics()
+/*virtual*/AttachmentStatistics CCZIReader::GetAttachmentStatistics() const
 {
     this->ThrowIfNotOperational();
     AttachmentStatistics statistics;

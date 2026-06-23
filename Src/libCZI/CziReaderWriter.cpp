@@ -834,7 +834,7 @@ void CCziReaderWriter::WriteToOutputStream(std::uint64_t offset, const void* pv,
     return this->ReadAttachment(entry);
 }
 
-/*virtual*/libCZI::AttachmentStatistics CCziReaderWriter::GetAttachmentStatistics()
+/*virtual*/libCZI::AttachmentStatistics CCziReaderWriter::GetAttachmentStatistics() const
 {
     this->ThrowIfNotOperational();
     AttachmentStatistics statistics;

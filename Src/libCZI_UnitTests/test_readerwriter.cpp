@@ -1003,6 +1003,7 @@ TEST(CziReaderWriter, ReaderWriter12)
     EXPECT_TRUE(CheckNotOperationalException([&]()->void {rw->GetPyramidStatistics(); })) << "incorrect behavior";
 
     EXPECT_TRUE(CheckNotOperationalException([&]()->void {rw->ReadAttachment(0); })) << "incorrect behavior";
+    EXPECT_TRUE(CheckNotOperationalException([&]()->void { rw->GetAttachmentStatistics(); })) << "incorrect behavior";
 }
 
 TEST(CziReaderWriter, ReaderWriterUpdateGuid1)
@@ -1547,6 +1548,20 @@ TEST(CziReaderWriter, TryGetSubBlockInfoOfArbitrarySubBlockInChannel)
 
     b = reader_writer->TryGetSubBlockInfoOfArbitrarySubBlockInChannel(1, sub_block_info);
     EXPECT_FALSE(b);
+}
+
+TEST(CziReaderWriter, AttachmentStatisticsReaderWriterOneAttachment)
+{
+    const auto test_czi = CreateTestCzi2();
+
+    const auto input_stream = make_shared<CMemInputOutputStream>(get<0>(test_czi).get(), get<1>(test_czi));
+    const auto reader_writer = CreateCZIReaderWriter();
+    reader_writer->Create(input_stream);
+
+    const auto statistics = reader_writer->GetAttachmentStatistics();
+
+    EXPECT_EQ(statistics.attachmentsCount, 1);
+    EXPECT_EQ(reader_writer->GetAttachmentCount(), 1);
 }
 
 TEST(CziReaderWriter, AttachmentStatisticsEmptyDocument)
