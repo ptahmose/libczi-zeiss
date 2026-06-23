@@ -148,7 +148,18 @@ namespace
         {
             auto bitmap = CStdBitmapData::Create(pixelType, width, height);
             ScopedBitmapLockerSP locked_bitmap{ bitmap };
-            CBitmapOperations::CopyConvertBigEndian(pixelType, pv, source_stride, locked_bitmap.ptrData, locked_bitmap.stride, width, height);
+#if LIBCZI_ISBIGENDIANHOST
+            if (CziUtils::IsPixelTypeEndianessAgnostic(pixelType))
+            {
+                CBitmapOperations::Copy(pixelType, pv, source_stride, pixelType, locked_bitmap.ptrData, locked_bitmap.stride, width, height, false);
+            }
+            else
+            {
+                CBitmapOperations::CopyConvertBigEndian(pixelType, pv, source_stride, locked_bitmap.ptrData, locked_bitmap.stride, width, height);
+            }
+#else
+            CBitmapOperations::Copy(pixelType, pv, source_stride, pixelType, locked_bitmap.ptrData, locked_bitmap.stride, width, height, false);
+#endif
             return bitmap;
         }
         else
