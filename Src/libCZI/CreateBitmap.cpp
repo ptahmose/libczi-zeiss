@@ -273,6 +273,11 @@ std::shared_ptr<libCZI::IBitmapData> libCZI::CreateBitmapFromSubBlockData(
         std::uint32_t height,
         const CreateBitmapOptions* options)
 {
+    if (pv == nullptr)
+    {
+        throw std::invalid_argument("The input data pointer is null.");
+    }
+
     switch (compression_mode)
     {
     case CompressionMode::JpgXr:
