@@ -149,14 +149,14 @@ namespace
 #if LIBCZI_ISBIGENDIANHOST
             if (CziUtils::IsPixelTypeEndianessAgnostic(pixelType))
             {
-                CBitmapOperations::Copy(pixelType, pv, source_stride, pixelType, locked_bitmap.ptrData, locked_bitmap.stride, width, height, false);
+                CBitmapOperations::Copy(pixelType, pv, source_stride, pixelType, locked_bitmap.ptrDataRoi, locked_bitmap.stride, width, height, false);
             }
             else
             {
-                CBitmapOperations::CopyConvertBigEndian(pixelType, pv, source_stride, locked_bitmap.ptrData, locked_bitmap.stride, width, height);
+                CBitmapOperations::CopyConvertBigEndian(pixelType, pv, source_stride, locked_bitmap.ptrDataRoi, locked_bitmap.stride, width, height);
             }
 #else
-            CBitmapOperations::Copy(pixelType, pv, source_stride, pixelType, locked_bitmap.ptrData, locked_bitmap.stride, width, height, false);
+            CBitmapOperations::Copy(pixelType, pv, source_stride, pixelType, locked_bitmap.ptrDataRoi, locked_bitmap.stride, width, height, false);
 #endif
             return bitmap;
         }
