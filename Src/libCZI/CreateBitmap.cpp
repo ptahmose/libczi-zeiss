@@ -223,7 +223,7 @@ namespace
 #endif
             )
         {
-            // only in this case (data is >= expected size, and if the pixel type is not endianness-agnostic on a big-endian host) 
+            // only in this case (data is >= expected size, and on a big-endian host if the pixel type is endianness-agnostic)
             // we can directly use the data as bitmap data without copying or conversion
             CSharedPtrAllocator sharedPtrAllocator(sub_block_data);
             auto sb = CBitmapData<CSharedPtrAllocator>::Create(
