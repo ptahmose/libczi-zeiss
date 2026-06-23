@@ -1548,6 +1548,7 @@ TEST(CziReaderWriter, TryGetSubBlockInfoOfArbitrarySubBlockInChannel)
     b = reader_writer->TryGetSubBlockInfoOfArbitrarySubBlockInChannel(1, sub_block_info);
     EXPECT_FALSE(b);
 }
+
 TEST(CziReaderWriter, AttachmentStatisticsEmptyDocument)
 {
     // arrange
