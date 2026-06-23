@@ -91,6 +91,7 @@ jobs:
               -DLIBCZI_BUILD_AZURESDK_BASED_STREAM=ON `
               -DLIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LIBCURL=ON `
               -DLIBCZI_BUILD_LIBCZIAPI=ON `
+              -DLIBCZI_BUILD_UNITTESTS=OFF `
               -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
               -DVCPKG_TARGET_TRIPLET=arm64-windows-static `
               -DCRASH_ON_UNALIGNED_ACCESS=OFF `
