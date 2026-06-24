@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
+#include "inc_libCZI_Config.h"
 #include "libCZI_compress.h"
 #include <stdexcept>
 #include <limits>
@@ -19,7 +20,9 @@
 #include <common/zstd_errors.h>
 #endif
 
+#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
 #include <lz4.h>
+#endif
 
 using namespace libCZI;
 using namespace libCZI::detail;

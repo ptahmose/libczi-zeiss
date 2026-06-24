@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include "inc_libCZI_Config.h"
+#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+
 #include <memory>
 
 #include "libCZI_compress.h"
@@ -58,3 +61,5 @@ namespace libCZI
         };
     }
 }
+
+#endif

@@ -136,6 +136,16 @@ option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_ZSTD "Prefer a ZSTD-package present o
 #  copy of RapidJSON during the CMake-run. This option is only relevant if building CZICmd.
 option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_RAPIDJSON "Prefer an RapidJSON-package present on the system" ON)
 
+option(LIBCZI_INCLUDE_ALL_EXPERIMENTAL_COMPONENTS "Include experimental components in the build." OFF)
+
+option(LIBCZI_INCLUDE_EXPERIMENTAL_CHUNKEDCOMPRESSION "Include experimental chunked-compression support in the build." OFF)
+
+
+if (LIBCZI_INCLUDE_ALL_EXPERIMENTAL_COMPONENTS)
+  set(LIBCZI_INCLUDE_EXPERIMENTAL_CHUNKEDCOMPRESSION ON CACHE BOOL
+      "Include experimental chunked-compression support in the build." FORCE)
+endif()
+
 
 if (LIBCZI_BUILD_UNITTESTS)
  include (CTest)

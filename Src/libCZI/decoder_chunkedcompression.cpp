@@ -4,6 +4,8 @@
 
 #include "decoder_chunkedcompression.h"
 
+#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+
 #include "libCZI_compress.h"
 #include "utilities.h"
 
@@ -328,3 +330,5 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         return bitmap;
     }
 }
+
+#endif
