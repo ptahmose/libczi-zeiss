@@ -381,7 +381,7 @@ static CompressParametersOnMap MakeLz4CompressParams()
 {
     CompressParametersOnMap params;
     params.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC)] =
-        CompressParameter(static_cast<uint32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4));
+        CompressParameter(static_cast<int32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4));
     return params;
 }
 
@@ -560,7 +560,7 @@ TEST_P(ChunkedCompressionRoundTripLz4Fixture, CompressToMemoryBlockRoundTripsRan
     CompressParametersOnMap compress_params;
     compress_params.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE)] = CompressParameter(GetParam().maxChunkSize);
     compress_params.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_CODEC)] =
-        CompressParameter(static_cast<uint32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4));
+        CompressParameter(static_cast<int32_t>(ChunkedCompressionHeaderHelper::Codec::Lz4));
 
     auto mem_blk = ChunkedCompress::CompressToMemoryBlock(kWidth, kHeight, kStride, PixelType::Gray8, source_data.data(), &compress_params);
     ASSERT_NE(mem_blk, nullptr);

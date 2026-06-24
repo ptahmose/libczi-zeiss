@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
+#include "inc_libCZI_Config.h"
 #include "decoder_chunkedcompression.h"
-
 
 #include "libCZI_compress.h"
 #include "utilities.h"
