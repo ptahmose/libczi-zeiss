@@ -866,13 +866,13 @@ namespace libCZI
         static size_t CreateCompressionHeader(void* destination, size_t sizeDestination, const HeaderInfoForCreation& headerInfo);
 
         /// Information used to determine the maximum size of a compression header.
-        /// All fields must be set to valid values. The number_of_chunks field must be greater than 1.
+        /// All fields must be set to valid values. The number_of_chunks field must be greater than 0.
         struct HeaderInfoForMaxSizeDetermination
         {
             Codec codec;                          ///< The codec to be used for compressing the chunks.
             std::uint8_t hiLoBytePackingApplied;  ///< This flag indicates whether the "hi-lo byte packing" preprocessing is applied. 0 means "no hi-lo byte packing", 1 means "applied", everything else means: unspecified.
 
-            /// The number of chunks. Must be greater than 1.
+            /// The number of chunks. Must be greater than 0.
             std::uint32_t number_of_chunks;
         };
 
