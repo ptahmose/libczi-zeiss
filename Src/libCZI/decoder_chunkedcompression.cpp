@@ -4,7 +4,6 @@
 
 #include "decoder_chunkedcompression.h"
 
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
 
 #include "libCZI_compress.h"
 #include "utilities.h"
@@ -21,7 +20,9 @@
 #include <common/zstd_errors.h>
 #endif
 
+#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
 #include <lz4.h>
+#endif
 
 using namespace std;
 using namespace libCZI;
@@ -166,6 +167,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
             break;
         }
+#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
             const int decompressed_size = LZ4_decompress_safe(
@@ -180,6 +182,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
             break;
         }
+#endif
         default:
             throw runtime_error("Unsupported codec for chunked decompression.");
         }
@@ -235,6 +238,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
             break;
         }
+#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
             const int decompressed_size = LZ4_decompress_safe(
@@ -258,6 +262,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
             break;
         }
+#endif
         default:
             throw runtime_error("Unsupported codec for chunked decompression.");
         }
@@ -330,5 +335,3 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
         return bitmap;
     }
 }
-
-#endif
