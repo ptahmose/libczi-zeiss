@@ -151,10 +151,22 @@ namespace libCZI
             static void ConvertUint64ToHostByteOrder(std::uint64_t* p) { ConvertInt64ToHostByteOrder(reinterpret_cast<int64_t*>(p)); }
             static void ConvertGuidToHostByteOrder(libCZI::GUID* p);
 
+            static bool TryParseInt32(const char* number, std::int32_t* pResult);
+            static bool TryParseUInt32(const char* number, std::uint32_t* pResult);
+
             static bool TryGetRgb8ColorFromString(const std::wstring& strXml, libCZI::Rgb8Color& color);
             static std::string Rgb8ColorToString(const libCZI::Rgb8Color& color);
 
             static std::map<std::wstring, std::wstring> TokenizeAzureUriString(const std::wstring& input);
+
+            /// Parse the options string and check if it contains the specified token. The syntax for the
+            /// options string is a semicolon-separated list of items.
+            ///
+            /// \param  input   The options string to parse. If nullptr, the function returns false.
+            /// \param  token   The string to search for. If nullptr or empty, the function returns false.
+            ///
+            /// \returns    True if the specified string is found; false otherwise.
+            static bool ContainsToken(const char* input, const char* token);
         };
 
         class LoHiBytePackUnpack

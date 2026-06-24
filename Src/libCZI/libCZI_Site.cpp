@@ -9,6 +9,7 @@
 #include <mutex>
 #include <cstdlib>
 #include "bitmapData.h"
+#include "decoder_chunkedcompression.h"
 #include "decoder_wic.h"
 #include "Site.h"
 
@@ -66,6 +67,8 @@ private:
     std::shared_ptr<IDecoder> zstd0decoder;
     std::once_flag  zstd1DecoderInitialized;
     std::shared_ptr<IDecoder> zstd1decoder;
+    std::once_flag  chunkedCompressionDecoderInitialized;
+    std::shared_ptr<IDecoder> chunkedCompressiondecoder;
 public:
     std::shared_ptr<IDecoder> GetDecoder(ImageDecoderType type, const char* arguments) override
     {
@@ -103,6 +106,16 @@ public:
 
             return this->zstd1decoder;
         }
+        case ImageDecoderType::ChunkedCompression:
+        {
+            std::call_once(chunkedCompressionDecoderInitialized,
+                [this]()
+                {
+                    this->chunkedCompressiondecoder = CChunkedCompressionDecoder::Create();
+                });
+
+            return this->chunkedCompressiondecoder;
+        }
         }
 
         return shared_ptr<IDecoder>();
@@ -119,6 +132,8 @@ private:
     std::shared_ptr<IDecoder> zstd0decoder;
     std::once_flag  zstd1DecoderInitialized;
     std::shared_ptr<IDecoder> zstd1decoder;
+    std::once_flag  chunkedCompressionDecoderInitialized;
+    std::shared_ptr<IDecoder> chunkedCompressiondecoder;
 public:
     std::shared_ptr<IDecoder> GetDecoder(ImageDecoderType type, const char* arguments) override
     {
@@ -155,6 +170,16 @@ public:
                 });
 
             return this->zstd1decoder;
+        }
+        case ImageDecoderType::ChunkedCompression:
+        {
+            std::call_once(chunkedCompressionDecoderInitialized,
+                [this]()
+                {
+                this->chunkedCompressiondecoder = CChunkedCompressionDecoder::Create();
+                });
+
+            return this->chunkedCompressiondecoder;
         }
         }
 
