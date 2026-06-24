@@ -68,4 +68,5 @@
 #define LIBCZI_HAS_BSWAP_LONG_IN_SYS_ENDIAN @libCZI_Has_bswap_long_in_sys_endian@
 
 // whether the "experimental chunked-compression" feature is available
-#define LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE @libCZI_Experimental_Chunked_Compression_Available@
+//#define LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE @libCZI_Experimental_Chunked_Compression_Available@
+#define LIBCZI_LZ4_AVAILABLE @libCZI_lz4_Available@

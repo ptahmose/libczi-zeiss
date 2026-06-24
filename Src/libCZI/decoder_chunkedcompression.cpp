@@ -20,7 +20,7 @@
 #include <common/zstd_errors.h>
 #endif
 
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
 #include <lz4.h>
 #endif
 
@@ -167,7 +167,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
             break;
         }
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
             const int decompressed_size = LZ4_decompress_safe(
@@ -238,7 +238,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
             break;
         }
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
             const int decompressed_size = LZ4_decompress_safe(

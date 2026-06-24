@@ -20,7 +20,7 @@
 #include <common/zstd_errors.h>
 #endif
 
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
 #include <lz4.h>
 #endif
 
@@ -1022,7 +1022,7 @@ namespace
 
             return total;
         }
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
             size_t total = full_chunk_count * static_cast<size_t>(LZ4_compressBound(static_cast<int>(max_chunk_size)));
@@ -1068,7 +1068,7 @@ namespace
         return CalculateMaxChunkedCompressionSize(source_data_size, maxChunkSize, codec, hiLoBytePacking);
     }
 
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
     bool ChunkedCompressWithLz4(const ChunkedCompressionOptionsLz4& options, const void* source_data, size_t size_source_data, vector<uint32_t>& compressed_sizes)
     {
         const uint32_t number_of_chunks = static_cast<uint32_t>((size_source_data + options.chunkSize - 1) / options.chunkSize);
@@ -1299,7 +1299,7 @@ namespace
         }
     }
 
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
     bool ChunkedCompressToDestinationBufferLz4(const ChunkedCompressionOptionsLz4& options, vector<uint32_t>& compressed_sizes, size_t* total_size_of_compressed_data)
     {
         const size_t bytesPerPel = Utils::GetBytesPerPixel(options.sourcePixeltype);
@@ -1372,7 +1372,7 @@ namespace
     }
 #endif
 
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
     size_t ChunkedCompressLz4AndPrependHeader(const ChunkedCompressionOptionsLz4& options)
     {
         vector<uint32_t> compressed_sizes;
@@ -1534,7 +1534,7 @@ bool ChunkedCompress::Compress(
         sizeDestination = size_compressed;
         return true;
     }
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
     case ChunkedCompressionHeaderHelper::Codec::Lz4:
     {
         ChunkedCompressionOptionsLz4 options_lz4;
@@ -1659,7 +1659,7 @@ std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
 
         return mem_blk;
     }
-#if (LIBCZI_EXPERIMENTAL_CHUNKED_COMPRESSION_AVAILABLE)
+#if (LIBCZI_LZ4_AVAILABLE)
     else if (compression_method == ChunkedCompressionHeaderHelper::Codec::Lz4)
     {
         ChunkedCompressionOptionsLz4 options_lz4;
