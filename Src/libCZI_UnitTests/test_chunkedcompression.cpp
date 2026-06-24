@@ -292,7 +292,7 @@ TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallBgr48Bitmap
 TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallBgr48BitmapWithHiLoBytePacking)
 {
     // we compress a small Bgr48 bitmap with the chunked-compression encoder (where we enable hi-lo-byte-packing)
-   // with two different APIs and verify that the compressed output matches.
+    // with two different APIs and verify that the compressed output matches.
 
     constexpr size_t kDestinationBufferSize = 10 * 1024;
     unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);

@@ -1570,12 +1570,12 @@ bool ChunkedCompress::Compress(
 }
 
 std::shared_ptr<IMemoryBlock> ChunkedCompress::CompressToMemoryBlock(
-           std::uint32_t sourceWidth,
-           std::uint32_t sourceHeight,
-           std::uint32_t sourceStride,
-           libCZI::PixelType sourcePixeltype,
-           const void* source,
-           const ICompressParameters* parameters)
+            std::uint32_t sourceWidth,
+            std::uint32_t sourceHeight,
+            std::uint32_t sourceStride,
+            libCZI::PixelType sourcePixeltype,
+            const void* source,
+            const ICompressParameters* parameters)
 {
     return ChunkedCompress::CompressToMemoryBlock(sourceWidth, sourceHeight, sourceStride, sourcePixeltype, source, malloc, free, parameters);
 }

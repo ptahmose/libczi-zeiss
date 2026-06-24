@@ -308,7 +308,7 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
     else
     {
         // sizes mismatch, and the decoded size is larger than expected - we need to decode to a temporary buffer, and
-           // copy from there into the bitmap
+        // copy from there into the bitmap
         unique_ptr<void, decltype(&free)> temporary_buffer(malloc(total_size_of_decompressed_data), free);
         if (temporary_buffer == nullptr)
         {
