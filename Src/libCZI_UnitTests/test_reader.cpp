@@ -1778,7 +1778,7 @@ TEST(CziReader, ReadSubBlockWithChunkedCompressionWithHiLoBytePackTooSmallEnable
     const auto sub_block = reader->ReadSubBlock(0);
 
     CreateBitmapOptions options;
-    options.handle_zstd_data_size_mismatch = true;
+    options.handle_chunked_compression_data_size_mismatch = true;
     auto bitmap = sub_block->CreateBitmap(&options);
     ASSERT_EQ(bitmap->GetWidth(), 4) << "Incorrect width";
     ASSERT_EQ(bitmap->GetHeight(), 4) << "Incorrect height";
