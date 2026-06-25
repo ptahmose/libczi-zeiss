@@ -91,6 +91,7 @@ jobs:
               -DLIBCZI_BUILD_AZURESDK_BASED_STREAM=ON `
               -DLIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LIBCURL=ON `
               -DLIBCZI_BUILD_LIBCZIAPI=ON `
+              -DLIBCZI_BUILD_UNITTESTS=OFF `
               -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
               -DVCPKG_TARGET_TRIPLET=arm64-windows-static `
               -DCRASH_ON_UNALIGNED_ACCESS=OFF `
@@ -227,5 +228,5 @@ jobs:
           verbose: true
           # Only one flag to be safe with
           # https://docs.codecov.com/docs/flags#one-to-one-relationship-of-flags-to-uploads
-          flags: ${{matrix.OS}}
+          flags: ${{matrix.os}}
           token: ${{ secrets.CODECOV_TOKEN }}
