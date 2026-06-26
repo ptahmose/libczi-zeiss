@@ -185,6 +185,72 @@ TEST(ChunkedCompression, EncodeAndDecodeSmallGray16BitmapWithLoHiByteUnpacking)
     ASSERT_EQ(second_row[3], 0) << "Decoded data does not match original data";
 }
 
+TEST(ChunkedCompression, EncodeAndDecodeGray16BitmapWithLoHiByteUnpackingAndMultipleChunks)
+{
+    // This test verifies that hi-lo byte preprocessing round-trips correctly when the
+    // preprocessed byte stream is split into multiple chunks. The encoder applies
+    // LoHiByteUnpackStrided to the complete bitmap before chunking, so the decoder must
+    // not treat each chunk as an independently hi-lo-unpacked stream.
+
+    constexpr uint32_t kWidth = 8;
+    constexpr uint32_t kHeight = 4;
+    constexpr uint32_t kStride = kWidth * sizeof(uint16_t);
+    constexpr uint32_t kMaxChunkSize = 16; // source payload is 64 bytes, forcing 4 chunks
+    constexpr size_t kDestinationBufferSize = 64 * 1024;
+
+    unique_ptr<uint8_t[]> compressed_data_buffer = make_unique<uint8_t[]>(kDestinationBufferSize);
+
+    array<uint16_t, kWidth * kHeight> source_data;
+    for (size_t i = 0; i < source_data.size(); ++i)
+    {
+        // Use values with both low and high bytes populated, so incorrect low/high pairing
+        // is easy to detect.
+        source_data[i] = static_cast<uint16_t>(0x1200 + i * 37);
+    }
+
+    CompressParametersOnMap parameters;
+    parameters.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_DOLOHIBYTEUNPACKING)] = CompressParameter(true);
+    parameters.map[static_cast<int>(CompressionParameterKey::CHUNKEDCOMPRESSION_MAXCHUNKSIZE)] = CompressParameter(kMaxChunkSize);
+
+    size_t compressed_data_size = kDestinationBufferSize;
+    const bool success = ChunkedCompress::Compress(
+        kWidth,
+        kHeight,
+        kStride,
+        PixelType::Gray16,
+        source_data.data(),
+        compressed_data_buffer.get(),
+        compressed_data_size,
+        &parameters);
+
+    ASSERT_TRUE(success);
+    ASSERT_GT(compressed_data_size, 0);
+    ASSERT_LE(compressed_data_size, kDestinationBufferSize);
+
+    const auto decoder = libCZI::GetDefaultSiteObject(SiteObjectType::Default)->GetDecoder(ImageDecoderType::ChunkedCompression, nullptr);
+    const auto decoded_bitmap = decoder->Decode(
+        compressed_data_buffer.get(),
+        compressed_data_size,
+        PixelType::Gray16,
+        kWidth,
+        kHeight,
+        nullptr);
+
+    ASSERT_EQ(decoded_bitmap->GetPixelType(), PixelType::Gray16);
+    ASSERT_EQ(decoded_bitmap->GetWidth(), kWidth);
+    ASSERT_EQ(decoded_bitmap->GetHeight(), kHeight);
+
+    const auto bitmap_lock_info = libCZI::ScopedBitmapLockerSP(decoded_bitmap);
+    for (uint32_t y = 0; y < kHeight; ++y)
+    {
+        const auto* decoded_row = reinterpret_cast<const uint16_t*>(
+            static_cast<const uint8_t*>(bitmap_lock_info.ptrDataRoi) + static_cast<size_t>(y) * bitmap_lock_info.stride);
+        const auto* source_row = source_data.data() + static_cast<size_t>(y) * kWidth;
+
+        ASSERT_EQ(memcmp(decoded_row, source_row, kStride), 0) << "Decoded row " << y << " does not match original data";
+    }
+}
+
 TEST(ChunkedCompression, CompressToMemoryBlockMatchesCompressForSmallGray8Bitmap)
 {
     // we compress a small Gray8 bitmap with the chunked-compression encoder and then decode it again to verify the roundtrip.

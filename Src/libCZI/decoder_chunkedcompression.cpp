@@ -8,6 +8,7 @@
 #include "libCZI_compress.h"
 #include "utilities.h"
 
+#include <cstring>
 #include <numeric>
 #include <stdexcept>
 #include <utility>

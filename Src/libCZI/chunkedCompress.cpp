@@ -4,6 +4,7 @@
 
 #include "inc_libCZI_Config.h"
 #include "libCZI_compress.h"
+#include <cstring>
 #include <stdexcept>
 #include <limits>
 #include <numeric>
