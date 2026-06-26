@@ -11,6 +11,7 @@
 #include "CziMetadataBuilder.h"
 #include "utilities.h"
 
+#include <cmath>
 #include <string>
 #include <regex>
 
