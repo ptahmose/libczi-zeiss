@@ -136,18 +136,18 @@ option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_ZSTD "Prefer a ZSTD-package present o
 #  copy of RapidJSON during the CMake-run. This option is only relevant if building CZICmd.
 option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_RAPIDJSON "Prefer an RapidJSON-package present on the system" ON)
 
-#option(LIBCZI_INCLUDE_ALL_EXPERIMENTAL_COMPONENTS "Include experimental components in the build." OFF)
-#
-#option(LIBCZI_INCLUDE_EXPERIMENTAL_CHUNKEDCOMPRESSION "Include experimental chunked-compression support in the build." OFF)
-
+# Enables optional LZ4 codec support for chunked compression.
+# When OFF, LZ4 code is excluded and no LZ4 dependency is required.
+# When ON, LZ4 is either found as an external package or fetched during configuration,
+# depending on LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LZ4.
 option(LIBCZI_BUILD_ENABLE_LZ4 "Enable LZ4 compression support in the build." OFF)
 
-#[[
-if (LIBCZI_INCLUDE_ALL_EXPERIMENTAL_COMPONENTS)
-  set(LIBCZI_INCLUDE_EXPERIMENTAL_CHUNKEDCOMPRESSION ON CACHE BOOL
-      "Include experimental chunked-compression support in the build." FORCE)
-endif()
-#]]
+# Controls how the LZ4 dependency is resolved when LIBCZI_BUILD_ENABLE_LZ4 is ON.
+# When ON, CMake requires an externally provided lz4 package via find_package(lz4 CONFIG REQUIRED).
+# When OFF, CMake fetches and builds a private copy of LZ4 using FetchContent.
+# This option has no effect when LIBCZI_BUILD_ENABLE_LZ4 is OFF.
+option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LZ4 "Prefer an LZ4-package present on the system" OFF)
+
 
 
 if (LIBCZI_BUILD_UNITTESTS)
