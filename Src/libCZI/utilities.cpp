@@ -9,6 +9,10 @@
 #include <sstream>
 #include <cstring>
 #include <array>
+#include <cerrno>
+#include <cctype>
+#include <cstdlib>
+#include <limits>
 #if LIBCZI_WINDOWSAPI_AVAILABLE || LIBCZI_WINDOWS_UWPAPI_AVAILABLE
 #include <Windows.h>
 #else
