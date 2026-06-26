@@ -637,8 +637,8 @@ size_t libCZI::ChunkedCompressionHeaderHelper::CreateCompressionHeader(void* des
 
     // --- id=4: Preprocessing ---
     {
-        // since the hi-lo byte packing preprocessing step is not always applied, we only write this chunk when it has actually been applied 
-        // (i.e. when headerInfo.hiLoBytePackingApplied is "1")
+        // Write this chunk when the hi-lo byte packing preprocessing state is explicitly specified
+        // (0 = not applied, 1 = applied). Other values mean unspecified and omit the chunk.
         if (headerInfo.hiLoBytePackingApplied == 1 || headerInfo.hiLoBytePackingApplied == 0)
         {
             if (offset + 3 > sizeDestination)  // id(1) + length(1) + payload(1)
@@ -702,8 +702,8 @@ size_t libCZI::ChunkedCompressionHeaderHelper::DetermineMaxSizeForCompressionHea
 
     // --- id=4: Preprocessing ---
     // id(1) + length(3) + payload(1)
-    // Only written when hiLoBytePackingApplied is "1" (i.e. when the hi-lo byte packing preprocessing step has been applied to the chunk data)
-    if (headerInfo.hiLoBytePackingApplied == 1)
+    // Written when hiLoBytePackingApplied is explicitly specified as 0 or 1.
+    if (headerInfo.hiLoBytePackingApplied == 0 || headerInfo.hiLoBytePackingApplied == 1)
     {
         maxSize += 1 + 3 + 1;
     }
