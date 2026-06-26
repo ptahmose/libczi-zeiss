@@ -22,16 +22,18 @@ namespace libCZI
             static std::shared_ptr<CChunkedCompressionDecoder> Create();
 
             /// Passing in a block of chunked-compressed data, decode the image and return a bitmap object.
-            /// This decoder requires that pixelType, width and height are passed in, the parameters must not be nullptr.
-            /// The additional_arguments parameter is currently not used and must be nullptr.
-            /// This decoder requires that pixelType, width and height are passed in, the parameters must not be nullptr.
-            /// 
-            /// \param ptrData              Pointer to a block of memory (which contains the chunked-compressed data).
-            /// \param size                 The size of the memory block pointed by `ptrData`.
-            /// \param pixelType            If non-null, the pixel type of the expected bitmap.
-            /// \param width                If non-null, the width of the expected bitmap.
-            /// \param height               If non-null, the height of the expected bitmap.
-            /// \param additional_arguments If non-null, additional arguments for the decoder.
+            /// This decoder requires that pixelType, width and height are passed in; the parameters must not be nullptr.
+            ///
+            /// Supported tokens in additional_arguments:
+            /// - "IgnorePreprocessingInstruction": ignore the hi-lo byte packing preprocessing flag in the chunked-compression header.
+            /// - "handle_data_size_mismatch": allow decompressed data size to differ from the size calculated from pixelType, width and height.
+            ///
+            /// \param ptrData              Pointer to a block of memory containing the chunked-compressed data.
+            /// \param size                 The size of the memory block pointed to by ptrData.
+            /// \param pixelType            The pixel type of the expected bitmap. Must not be nullptr.
+            /// \param width                The width of the expected bitmap. Must not be nullptr.
+            /// \param height               The height of the expected bitmap. Must not be nullptr.
+            /// \param additional_arguments Optional decoder arguments as a token list. May be nullptr.
             ///
             /// \return A bitmap object with the decoded data.
             std::shared_ptr<libCZI::IBitmapData> Decode(const void* ptrData, size_t size, const libCZI::PixelType* pixelType, const std::uint32_t* width, const std::uint32_t* height, const char* additional_arguments) override;
