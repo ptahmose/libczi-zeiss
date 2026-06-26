@@ -514,16 +514,29 @@ tString trimImpl(const tString& str, const tString& whitespace)
 
 bool Utilities::TryParseInt32(const char* number, std::int32_t* pResult)
 {
-    long long liValue = strtoll(number, nullptr, 10);
+    if (number == nullptr || *number == '\0')
+    {
+        return false;
+    }
 
-    if (liValue > (std::numeric_limits<int>::max)() || liValue < (std::numeric_limits<int>::min)())
+    char* end = nullptr;
+    errno = 0;
+    const long long liValue = strtoll(number, &end, 10);
+
+    if (end == number || *end != '\0' || errno == ERANGE)
+    {
+        return false;
+    }
+
+    if (liValue > (std::numeric_limits<std::int32_t>::max)() ||
+        liValue < (std::numeric_limits<std::int32_t>::min)())
     {
         return false;
     }
 
     if (pResult != nullptr)
     {
-        *pResult = static_cast<int>(liValue);
+        *pResult = static_cast<std::int32_t>(liValue);
     }
 
     return true;
@@ -531,7 +544,19 @@ bool Utilities::TryParseInt32(const char* number, std::int32_t* pResult)
 
 bool Utilities::TryParseUInt32(const char* number, std::uint32_t* pResult)
 {
-    unsigned long long ullValue = strtoull(number, nullptr, 10);
+    if (number == nullptr || *number == '\0' || *number == '-')
+    {
+        return false;
+    }
+
+    char* end = nullptr;
+    errno = 0;
+    const unsigned long long ullValue = strtoull(number, &end, 10);
+
+    if (end == number || *end != '\0' || errno == ERANGE)
+    {
+        return false;
+    }
 
     if (ullValue > (std::numeric_limits<std::uint32_t>::max)())
     {
