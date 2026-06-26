@@ -227,6 +227,46 @@ namespace
             // we can directly use the data as bitmap data without copying or conversion
             CSharedPtrAllocator sharedPtrAllocator(sub_block_data);
             auto sb = CBitmapData<CSharedPtrAllocator>::Create(
+                sharedPtrAllocator,
+                sub_block_info.pixelType,
+                sub_block_info.physicalSize.w,
+                sub_block_info.physicalSize.h,
+                stride);
+            return sb;
+        }
+        else
+        {
+            return CreateBitmapFromSubBlockData_Uncompressed(
+                sub_block_data.get(),
+                size,
+                sub_block_info.pixelType,
+                sub_block_info.physicalSize.w,
+                sub_block_info.physicalSize.h,
+                handle_uncompressed_data_size_mismatch);
+        }
+    }
+}
+    std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_Uncompressed(ISubBlock* subBlk, bool handle_uncompressed_data_size_mismatch)
+    {
+        const auto& sub_block_info = subBlk->GetSubBlockInfo();
+
+        // The stride with an uncompressed bitmap in CZI is exactly the line-size.
+        const std::uint32_t stride = sub_block_info.physicalSize.w * CziUtils::GetBytesPerPel(sub_block_info.pixelType);
+        const size_t expected_size = static_cast<size_t>(stride) * sub_block_info.physicalSize.h;
+
+        size_t size;
+        auto sub_block_data = subBlk->GetRawData(ISubBlock::MemBlkType::Data, &size);
+
+        if (expected_size <= size
+#if LIBCZI_ISBIGENDIANHOST
+            && CziUtils::IsPixelTypeEndianessAgnostic(subBlk->GetSubBlockInfo().pixelType)
+#endif
+            )
+        {
+            // only in this case (data is >= expected size, and on a big-endian host if the pixel type is endianness-agnostic)
+            // we can directly use the data as bitmap data without copying or conversion
+            CSharedPtrAllocator sharedPtrAllocator(sub_block_data);
+            auto sb = CBitmapData<CSharedPtrAllocator>::Create(
                                                             sharedPtrAllocator,
                                                             sub_block_info.pixelType,
                                                             sub_block_info.physicalSize.w,
