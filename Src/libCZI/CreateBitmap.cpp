@@ -264,12 +264,12 @@ namespace
                         handle_chunked_compression_data_size_mismatch ? CChunkedCompressionDecoder::kOption_handle_data_size_mismatch : nullptr);
     }
 
-    std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_ChunkedExtensible(ISubBlock* subBlk, bool handle_uncompressed_data_size_mismatch)
+    std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_ChunkedExtensible(ISubBlock* subBlk, bool handle_chunked_compression_data_size_mismatch)
     {
         const void* ptr;
         size_t size;
         subBlk->DangerousGetRawData(ISubBlock::MemBlkType::Data, ptr, size);
-        return CreateBitmapFromSubBlockData_ChunkedExtensible(ptr, size, subBlk->GetSubBlockInfo().pixelType, subBlk->GetSubBlockInfo().physicalSize.w, subBlk->GetSubBlockInfo().physicalSize.h, handle_uncompressed_data_size_mismatch);
+        return CreateBitmapFromSubBlockData_ChunkedExtensible(ptr, size, subBlk->GetSubBlockInfo().pixelType, subBlk->GetSubBlockInfo().physicalSize.w, subBlk->GetSubBlockInfo().physicalSize.h, handle_chunked_compression_data_size_mismatch);
     }
 }
 
