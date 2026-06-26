@@ -602,7 +602,7 @@ namespace libCZI
     struct AttachmentStatistics
     {
         /// The total number of attachments.
-        int attachmentsCount;
+        int attachmentsCount{ 0 };
     };
 
     /// Interface for sub-block repository. This interface is used to access the sub-blocks in a CZI-file.
