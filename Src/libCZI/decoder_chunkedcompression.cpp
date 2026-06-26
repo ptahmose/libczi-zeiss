@@ -145,21 +145,29 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
 /*static*/void CChunkedCompressionDecoder::DecompressNoPreprocessing(const DecodeInformation& decode_information, uint64_t source_offset, void* destination, size_t size_destination)
 {
-    uint64_t destination_offset = 0;
+    size_t destination_offset = 0;
 
     for (size_t i = 0; i < get<1>(decode_information.chunk_header_info).chunks.size(); ++i)
     {
         const auto& chunk = get<1>(decode_information.chunk_header_info).chunks[i];
 
+        if (chunk.uncompressedSize > size_destination - destination_offset)
+        {
+            throw runtime_error("Chunked decompression would exceed the destination buffer size.");
+        }
+
+        size_t decompressed_size = 0;
+
         switch (get<1>(decode_information.chunk_header_info).codec)
         {
         case ChunkedCompressionHeaderHelper::Codec::ZStd:
         {
-            const size_t decompressed_size = ZSTD_decompress(
+            decompressed_size = ZSTD_decompress(
                 static_cast<uint8_t*>(destination) + destination_offset,
                 chunk.uncompressedSize,
                 static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
                 chunk.compressedSize);
+
             if (ZSTD_isError(decompressed_size))
             {
                 throw runtime_error("ZStd decompression of chunk failed.");
@@ -170,21 +178,34 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 #if (LIBCZI_LZ4_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
-            const int decompressed_size = LZ4_decompress_safe(
+            if (chunk.compressedSize > static_cast<std::uint32_t>((std::numeric_limits<int>::max)()) ||
+                chunk.uncompressedSize > static_cast<std::uint32_t>((std::numeric_limits<int>::max)()))
+            {
+                throw runtime_error("Chunk size is too large for LZ4 decompression.");
+            }
+
+            const int lz4_decompressed_size = LZ4_decompress_safe(
                 static_cast<const char*>(decode_information.ptr_subblock_data) + source_offset,
                 static_cast<char*>(destination) + destination_offset,
                 static_cast<int>(chunk.compressedSize),
                 static_cast<int>(chunk.uncompressedSize));
-            if (decompressed_size < 0)
+
+            if (lz4_decompressed_size < 0)
             {
                 throw runtime_error("LZ4 decompression of chunk failed.");
             }
 
+            decompressed_size = static_cast<size_t>(lz4_decompressed_size);
             break;
         }
 #endif
         default:
             throw runtime_error("Unsupported codec for chunked decompression.");
+        }
+
+        if (decompressed_size != chunk.uncompressedSize)
+        {
+            throw runtime_error("Decompressed chunk size does not match the uncompressed size declared in the chunked-compression header.");
         }
 
         destination_offset += chunk.uncompressedSize;
@@ -207,16 +228,23 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
 
     std::vector<uint8_t> staging_buffer(largest_decompressed_chunk_size);
 
-    uint64_t destination_offset = 0;
+    size_t destination_offset = 0;
     for (size_t i = 0; i < get<1>(decode_information.chunk_header_info).chunks.size(); ++i)
     {
         const auto& chunk = get<1>(decode_information.chunk_header_info).chunks[i];
+
+        if (chunk.uncompressedSize > size_destination - destination_offset)
+        {
+            throw runtime_error("Chunked decompression would exceed the destination buffer size.");
+        }
+
+        size_t decompressed_size = 0;
 
         switch (get<1>(decode_information.chunk_header_info).codec)
         {
         case ChunkedCompressionHeaderHelper::Codec::ZStd:
         {
-            const size_t decompressed_size = ZSTD_decompress(
+            decompressed_size = ZSTD_decompress(
                 staging_buffer.data(),
                 staging_buffer.size(),
                 static_cast<const uint8_t*>(decode_information.ptr_subblock_data) + source_offset,
@@ -227,45 +255,48 @@ std::shared_ptr<libCZI::IBitmapData> CChunkedCompressionDecoder::Decode(const vo
                 throw runtime_error("ZStd decompression of chunk failed.");
             }
 
-            // TODO(JBL): additional checks for the size
-            LoHiBytePackUnpack::LoHiBytePackStrided(
-                staging_buffer.data(),
-                decompressed_size,
-                decompressed_size / 2,
-                1,
-                decompressed_size,
-                static_cast<uint8_t*>(destination) + destination_offset);
-
             break;
         }
 #if (LIBCZI_LZ4_AVAILABLE)
         case ChunkedCompressionHeaderHelper::Codec::Lz4:
         {
-            const int decompressed_size = LZ4_decompress_safe(
+            if (chunk.compressedSize > static_cast<std::uint32_t>((std::numeric_limits<int>::max)()) ||
+                chunk.uncompressedSize > static_cast<std::uint32_t>((std::numeric_limits<int>::max)()))
+            {
+                throw runtime_error("Chunk size is too large for LZ4 decompression.");
+            }
+
+            const int lz4_decompressed_size = LZ4_decompress_safe(
                 static_cast<const char*>(decode_information.ptr_subblock_data) + source_offset,
                 reinterpret_cast<char*>(staging_buffer.data()),
                 static_cast<int>(chunk.compressedSize),
                 static_cast<int>(chunk.uncompressedSize));
-            if (decompressed_size < 0)
+
+            if (lz4_decompressed_size < 0)
             {
                 throw runtime_error("LZ4 decompression of chunk failed.");
             }
 
-            // TODO(JBL): additional checks for the size
-            LoHiBytePackUnpack::LoHiBytePackStrided(
-                staging_buffer.data(),
-                decompressed_size,
-                decompressed_size / 2,
-                1,
-                decompressed_size,
-                static_cast<uint8_t*>(destination) + destination_offset);
-
+            decompressed_size = static_cast<size_t>(lz4_decompressed_size);
             break;
         }
 #endif
         default:
             throw runtime_error("Unsupported codec for chunked decompression.");
         }
+
+        if (decompressed_size != chunk.uncompressedSize)
+        {
+            throw runtime_error("Decompressed chunk size does not match the uncompressed size declared in the chunked-compression header.");
+        }
+
+        LoHiBytePackUnpack::LoHiBytePackStrided(
+            staging_buffer.data(),
+            decompressed_size,
+            decompressed_size / 2,
+            1,
+            decompressed_size,
+            static_cast<uint8_t*>(destination) + destination_offset);
 
         destination_offset += chunk.uncompressedSize;
         source_offset += chunk.compressedSize;
