@@ -827,10 +827,11 @@ namespace libCZI
         /// \param 	data			Pointer to the data containing the chunked-compression header.
         /// \param 	sizeData		The size of the data in bytes.
         /// \param 	callback		The callback invoked for each header chunk. Return true to continue walking, false to stop.
-        /// \param [out]	bytes_consumed	If non-null, on return this gives the total number of bytes consumed by the header.
+        /// \param [out] bytes_consumed If non-null, receives the number of bytes consumed up to the end-of-header marker
+        ///                             or up to the end of the chunk that caused the callback to stop early.
         ///
-        /// \returns	True if the header was walked successfully (including an early stop caused by the callback returning false);
-        ///			false if the header could not be parsed.
+        /// \returns    True if the end-of-header marker was reached; false if the callback stopped the walk early.
+        ///             Invalid or truncated headers are reported by throwing an exception.
         static bool WalkCompressionHeader(const void* data, size_t sizeData, const std::function<bool(const CompressionHeaderChunk&)>& callback, size_t* bytes_consumed);
 
         /// Parse the chunked-compression header, and return the size of the header (in bytes). If the given data does not contain a valid chunked-compression header,

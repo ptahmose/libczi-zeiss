@@ -351,17 +351,19 @@ bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* d
         throw invalid_argument("data must not be null");
     }
 
-    if (callback == nullptr)
+    if (!callback)
     {
         throw invalid_argument("callback must not be null");
     }
 
     const std::uint8_t* p = static_cast<const std::uint8_t*>(data);
     size_t offset = 0;
+
     for (;;)
     {
         const auto id = Parse2ByteVarInt(p + offset, sizeData - offset);
         offset += get<1>(id);
+
         if (get<0>(id) == static_cast<uint16_t>(HeaderChunkId::EndOfHeader))
         {
             if (bytes_consumed != nullptr)
@@ -374,19 +376,23 @@ bool libCZI::ChunkedCompressionHeaderHelper::WalkCompressionHeader(const void* d
 
         const auto chunkSize = Parse3ByteVarInt(p + offset, sizeData - offset);
         offset += get<1>(chunkSize);
-        if (offset > sizeData)
+
+        const size_t payloadSize = get<0>(chunkSize);
+        if (payloadSize > sizeData - offset)
         {
             throw invalid_argument("Invalid chunk size in compression header.");
         }
 
         CompressionHeaderChunk compression_header_chunk;
         compression_header_chunk.chunkId = get<0>(id);
-        compression_header_chunk.chunkSize = get<0>(chunkSize);
+        compression_header_chunk.chunkSize = static_cast<std::uint32_t>(payloadSize);
         compression_header_chunk.chunkPayload = p + offset;
-        compression_header_chunk.chunkPayloadSize = get<0>(chunkSize);
-        offset += get<0>(chunkSize);
-        const bool b = callback(compression_header_chunk);
-        if (!b)
+        compression_header_chunk.chunkPayloadSize = payloadSize;
+
+        offset += payloadSize;
+
+        const bool continueWalking = callback(compression_header_chunk);
+        if (!continueWalking)
         {
             if (bytes_consumed != nullptr)
             {
@@ -487,7 +493,7 @@ size_t libCZI::ChunkedCompressionHeaderHelper::GetCompressionHeaderSize(const vo
         // the supplied buffer.  A well-formed header must fit entirely within 'sizeData'
         // bytes; if it does not, the buffer is either truncated or the data is corrupt.
         // check if the chunk size is valid (i.e. does not exceed the remaining data size)
-        if (get<0>(chunkSize) + offset > sizeData)
+        if (get<0>(chunkSize) > sizeData - offset)
         {
             throw invalid_argument("Invalid chunk size in compression header.");
         }
