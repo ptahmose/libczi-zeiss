@@ -30,6 +30,11 @@ static CCZIParse::SubblockDirectoryParseOptions GetParseOptionsFromOpenOptions(c
         }
     }
 
+    if (options.swap_t_and_y)
+    {
+        parse_options.SetTreatTasY(true);
+    }
+
     return parse_options;
 }
 

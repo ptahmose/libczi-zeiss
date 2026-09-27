@@ -545,12 +545,23 @@ using namespace libCZI::detail;
             entry.storedWidth = subBlkDirDV->DimensionEntries[i].StoredSize;
             x_was_given = true;
         }
-        else if (CCZIParse::IsYDimension(subBlkDirDV->DimensionEntries[i].Dimension, 4))
+        else if (!options.GetTreatTAsY() && CCZIParse::IsYDimension(subBlkDirDV->DimensionEntries[i].Dimension, 4))
         {
             entry.y = subBlkDirDV->DimensionEntries[i].Start;
             entry.height = subBlkDirDV->DimensionEntries[i].Size;
             entry.storedHeight = subBlkDirDV->DimensionEntries[i].StoredSize;
             y_was_given = true;
+        }
+        else if (options.GetTreatTAsY() && CCZIParse::IsTDimension(subBlkDirDV->DimensionEntries[i].Dimension, 4))
+        {
+            entry.y = subBlkDirDV->DimensionEntries[i].Start;
+            entry.height = subBlkDirDV->DimensionEntries[i].Size;
+            entry.storedHeight = subBlkDirDV->DimensionEntries[i].StoredSize;
+            y_was_given = true;
+        }
+        else if (options.GetTreatTAsY() && CCZIParse::IsYDimension(subBlkDirDV->DimensionEntries[i].Dimension, 4))
+        {
+            continue;
         }
         else if (CCZIParse::IsMDimension(subBlkDirDV->DimensionEntries[i].Dimension, 4))
         {
@@ -797,6 +808,17 @@ using namespace libCZI::detail;
 
     char c = CCZIParse::ToUpperCase(*ptr);
     return (c == 'Y') ? true : false;
+}
+
+/*static*/bool CCZIParse::IsTDimension(const char* ptr, size_t size)
+{
+    if (size < 1)
+    {
+        CCZIParse::ThrowIllegalData("parameter 'size' is illegal");
+    }
+
+    char c = CCZIParse::ToUpperCase(*ptr);
+    return (c == 'T') ? true : false;
 }
 
 [[noreturn]] /*static*/void CCZIParse::ThrowNotEnoughDataRead(std::uint64_t offset, std::uint64_t bytesRequested, std::uint64_t bytesActuallyRead)

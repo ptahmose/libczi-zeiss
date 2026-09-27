@@ -833,6 +833,8 @@ namespace libCZI
             /// without problems.
             bool ignore_sizem_for_pyramid_subblocks{ false };
 
+            bool swap_t_and_y{ false };
+
             /// The default frame-of-reference which is to be used by the reader-object. This determines which frame-of-reference
             /// is used when the enum value "CZIFrameOfReference::Default" is used with an operation of the reader-object.
             /// If the value specified here is "CZIFrameOfReference::Invalid" or "CZIFrameOfReference::Default", then
