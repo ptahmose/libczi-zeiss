@@ -807,7 +807,7 @@ namespace libCZI
             /// distinguish between sub-block-directory precedence and sub-block-header precedence. The value 'PrecedenceMask'
             /// is used to mask this bit. Bit 7 is used to indicate whether a discrepancy is to be ignored or whether an error
             /// is to be reported.
-            /// Historically, libCZI (up to version 0.63.2) used to give precedence fo the sub-block header information,
+            /// Historically, libCZI (up to version 0.63.2) used to give precedence to the sub-block header information,
             /// and it did not report a discrepancy.
             enum class SubBlockDirectoryInfoPolicy : std::uint8_t
             {
