@@ -833,6 +833,12 @@ namespace libCZI
             /// without problems.
             bool ignore_sizem_for_pyramid_subblocks{ false };
 
+            /// Compatibility workaround for legacy CZI documents that store the vertical
+            /// image coordinate in dimension T instead of dimension Y. When enabled,
+            /// libCZI interprets T as Y while parsing sub-block directory entries and
+            /// ignores Y entries. This can make documents using this non-standard
+            /// convention accessible, but changes the interpretation of their dimensions.
+            /// Leave disabled unless needed for an affected document. The default is false.
             bool swap_t_and_y{ false };
 
             /// The default frame-of-reference which is to be used by the reader-object. This determines which frame-of-reference
