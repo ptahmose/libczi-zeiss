@@ -1,4 +1,4 @@
-CZIcmd Documentation           
+CZIcmd Documentation
 =======================
 
 The console application "CZIcmd" is provided for two purposes:
@@ -84,6 +84,21 @@ The synopsis of the program is:
                         Specifies the property-bag used for creating the stream used
                         for reading the source CZI-file. The data is given in
                         JSON-notation.
+
+      --open-options OPENOPTIONS
+                        Specifies reader OpenOptions as semicolon-separated key=value
+                        pairs. Supported keys are laxSubblockCoordinateChecks,
+                        ignoreSizeMForPyramidSubblocks, swapTAndY,
+                        defaultFrameOfReference, subBlockDirectoryInfoPrecedence,
+                        and subBlockDirectoryInfoDiscrepancy. Boolean values are
+                        'true' or 'false'; frame-of-reference values are
+                        'Invalid', 'Default', 'RawSubBlockCoordinateSystem' or
+                        'PixelCoordinateSystem'; precedence values are
+                        'SubBlockDirectoryPrecedence' or 'SubBlockHeaderPrecedence';
+                        discrepancy values are 'error' or 'ignore'. Unknown keys
+                        are ignored. When this option is supplied, omitted keys use
+                        libCZI OpenOptions defaults. Quote the entire value so the
+                        shell passes semicolons as part of the argument.
 
       -o,--output OUTPUTFILE
                         Specifies the output-filename. A suffix will be appended to
@@ -261,6 +276,14 @@ The above text is printed if the program is executed with the argument '-?' or '
 .. code-block:: bash
 
     CZIcmd --help
+
+CZIcmd uses the following reader settings when ``--open-options`` is omitted.
+See :ref:`czicmd-open-options-details` for what each setting means and how
+defaults work when the option is supplied.
+
+.. code-block:: console
+
+    laxSubblockCoordinateChecks=true;ignoreSizeMForPyramidSubblocks=false;swapTAndY=false;defaultFrameOfReference=Invalid;subBlockDirectoryInfoPrecedence=SubBlockDirectoryPrecedence;subBlockDirectoryInfoDiscrepancy=error
     
 
 The program expects the argument '-c' or '\--command' in order to select between different operations. The command choosen then determines
@@ -628,3 +651,87 @@ This will only save the attachments with 'name' = "Thumbnail".
     CZIcmd.exe --command ExtractAttachment --source D:\PICTURES\NaCZIrTestData\Example_TMA1_Zeb1_SPRR2_Ck19_S100-1-1-1-1.czi --output attachments --selection {\"index\":1.0}
 
 This will only save the attachments with id = 1.
+
+
+.. _czicmd-open-options-details:
+
+Reader open options
+===================
+
+The ``--open-options`` argument controls how CZIcmd's reader validates and
+interprets sub-block information. These settings are useful when reading files
+with nonconforming dimension entries or when the sub-block directory and
+sub-block header disagree.
+
+CZIcmd uses the libCZI ``ICZIReader::OpenOptions`` defaults when
+``--open-options`` is absent. If the option is supplied, parsing starts from
+those same defaults; keys omitted from the value retain them.
+
+The value is a semicolon-separated list of ``key=value`` pairs. Keys and values
+are case-sensitive. Unknown keys are ignored; malformed pairs, duplicate keys,
+and invalid values are rejected. Escaping is not supported, so quote the entire
+argument to keep shell semicolons together.
+
+The defaults are:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Key
+     - Default value
+    * - ``laxSubblockCoordinateChecks``
+      - ``false``
+    * - ``ignoreSizeMForPyramidSubblocks``
+      - ``false``
+    * - ``swapTAndY``
+      - ``true``
+    * - ``defaultFrameOfReference``
+      - ``Invalid``
+    * - ``subBlockDirectoryInfoPrecedence``
+      - ``SubBlockDirectoryPrecedence``
+    * - ``subBlockDirectoryInfoDiscrepancy``
+      - ``error``
+
+Option details
+--------------
+
+* ``laxSubblockCoordinateChecks`` controls validation of sub-block dimension
+  entries. ``true`` enables lax checks for compatibility with files produced
+  by software that wrote unexpected values. ``false`` enables strict checks:
+  X and Y entries must be present, other non-M dimensions must have size and
+  physical size 1, and the M dimension must have size 1. A violation can cause
+  the reader to reject the file.
+
+* ``ignoreSizeMForPyramidSubblocks`` applies only when
+  ``laxSubblockCoordinateChecks=false``. When ``true``, a pyramid sub-block may
+  have an M dimension size other than 1. Non-pyramid sub-blocks must still have
+  M size 1. This accommodates files whose producers wrote a bogus M size for
+  pyramid sub-blocks.
+
+* ``swapTAndY`` controls how the directory's T and Y dimensions are interpreted.
+  When ``true``, T is used as the vertical (Y) coordinate and Y is ignored for
+  that coordinate. This is intended for files that store vertical position in
+  T rather than Y; it changes the file's dimension interpretation.
+
+* ``defaultFrameOfReference`` sets the frame of reference used when a reader
+  operation requests ``CZIFrameOfReference::Default``. Accepted values are
+  ``Invalid``, ``Default``, ``RawSubBlockCoordinateSystem``, and
+  ``PixelCoordinateSystem``. ``Invalid`` and ``Default`` both resolve to
+  ``RawSubBlockCoordinateSystem``.
+
+* ``subBlockDirectoryInfoPrecedence`` chooses which source supplies sub-block
+  information when constructing a sub-block: ``SubBlockDirectoryPrecedence``
+  uses the directory, while ``SubBlockHeaderPrecedence`` uses the sub-block
+  header.
+
+* ``subBlockDirectoryInfoDiscrepancy`` controls what happens if directory and
+  header information disagree. ``error`` reports the mismatch when the
+  sub-block is read. ``ignore`` allows reading to continue; the precedence
+  setting determines which source's information is used.
+
+For example, this value selects strict validation, keeps the default M-size
+check, and tolerates directory/header discrepancies:
+
+.. code-block:: console
+
+    CZIcmd.exe --command PrintInformation --source input.czi --open-options "laxSubblockCoordinateChecks=false;subBlockDirectoryInfoDiscrepancy=ignore"

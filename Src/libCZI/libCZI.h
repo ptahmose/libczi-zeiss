@@ -851,6 +851,7 @@ namespace libCZI
             {
                 this->lax_subblock_coordinate_checks = true;
                 this->ignore_sizem_for_pyramid_subblocks = false;
+                this->swap_t_and_y = false;
                 this->default_frame_of_reference = libCZI::CZIFrameOfReference::Invalid;
                 this->subBlockDirectoryInfoPolicy = SubBlockDirectoryInfoPolicy::SubBlockDirectoryPrecedence;
             }

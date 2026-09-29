@@ -25,15 +25,7 @@ std::shared_ptr<ICZIReader> CExecuteBase::CreateAndOpenCziReader(const CCmdLineO
     }
 
     auto spReader = libCZI::CreateCZIReader();
-
-    ICZIReader::OpenOptions open_options;
-    open_options.SetDefault();
-    open_options.lax_subblock_coordinate_checks = false;
-    open_options.swap_t_and_y = true;
-    open_options.subBlockDirectoryInfoPolicy =
-        ICZIReader::OpenOptions::SubBlockDirectoryInfoPolicy::IgnoreDiscrepancy;
-
-    spReader->Open(stream, &open_options);
+    spReader->Open(stream, &options.GetOpenOptions());
     return spReader;
 }
 
