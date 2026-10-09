@@ -52,6 +52,16 @@ namespace libCZI
             this->fractionalNanoseconds = 0;
         }
 
+        /// Marks this object as explicitly invalid.
+        /// After calling `SetToInvalid()` the object will not be considered valid by
+        /// `IsValid()` and is suitable for representing an intentionally invalid date/time.
+        void SetToInvalid()
+        {
+            this->fractionalNanoseconds = this->sec = this->min = this->hour = this->mday = this->mon = this->year = 
+                this->offsetHours = this->offsetMinutes = (std::numeric_limits<int>::min)();
+            this->isUTC = false;
+        }
+
         /// Query if this object uses a "time zone offset". This is the case of the fields offsetHours and offsetMinutes
         /// contain valid values and "isUTC" is false.
         /// \return True if a "time zone offset" is specified and it is used, false if not.
