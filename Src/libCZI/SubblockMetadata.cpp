@@ -131,7 +131,7 @@ bool SubblockMetadata::TryGetTagAsString(const std::wstring& tag_name, std::wstr
     return requested_node->TryGetValue(value);
 }
 
-bool SubblockMetadata::TryGetTagAsXmlDataTime(const std::wstring& tag_name, libCZI::XmlDateTime* value)
+bool SubblockMetadata::TryGetTagAsXmlDateTime(const std::wstring& tag_name, libCZI::XmlDateTime* value)
 {
     wstring text;
     if (!this->TryGetTagAsString(tag_name, &text))

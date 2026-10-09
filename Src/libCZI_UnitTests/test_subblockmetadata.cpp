@@ -139,9 +139,9 @@ TEST(SubBlockMetadata, ReadSubBlockMetadataWithDateTimeField)
 
     // assert
     EXPECT_TRUE(sub_block_metadata->IsXmlValid());
-    EXPECT_TRUE(sub_block_metadata->TryGetTagAsXmlDataTime(L"AcquisitionTime", nullptr));
+    EXPECT_TRUE(sub_block_metadata->TryGetTagAsXmlDateTime(L"AcquisitionTime", nullptr));
     libCZI::XmlDateTime date_time;
-    EXPECT_TRUE(sub_block_metadata->TryGetTagAsXmlDataTime(L"AcquisitionTime", &date_time));
+    EXPECT_TRUE(sub_block_metadata->TryGetTagAsXmlDateTime(L"AcquisitionTime", &date_time));
     ASSERT_EQ(date_time.year, 2019);
     ASSERT_EQ(date_time.mon, 11);
     ASSERT_EQ(date_time.mday, 15);
