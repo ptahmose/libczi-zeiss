@@ -121,9 +121,9 @@ TEST(SubBlockMetadata, ReadSubBlockMetadataWithDateTimeField)
     // arrange
     const string invalid_sub_block_metadata_xml = R"(
         <METADATA>
-          <Tags>
-            <AcquisitionTime>2019-11-15T08:00:43.6707018Z</AcquisitionTime>
-          </Tags>
+            <Tags>
+                <AcquisitionTime>2019-11-15T08:00:43.6707018Z</AcquisitionTime>
+            </Tags>
         </METADATA>
     )";
 

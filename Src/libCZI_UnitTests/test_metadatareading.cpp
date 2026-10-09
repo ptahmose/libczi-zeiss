@@ -550,6 +550,67 @@ TEST(MetadataReading, DateTimeFractionParsingTests)
     EXPECT_EQ(dt.sec, 36) << "Truncation must not carry into seconds (project choice: clamp).";
 }
 
+TEST(MetadataReading, DateTimeToXmlStringTests)
+{
+    // no fractional part -> no fraction emitted
+    {
+        XmlDateTime dt;
+        dt.Clear();
+        dt.year = 2008; dt.mon = 8; dt.mday = 30;
+        dt.hour = 1; dt.min = 45; dt.sec = 36;
+        dt.isUTC = true;
+        dt.fractionalNanoseconds = 0;
+        std::string s = dt.ToXmlString();
+        EXPECT_EQ(s, "2008-08-30T01:45:36Z");
+    }
+
+    // fractional seconds -> trimmed representation
+    {
+        XmlDateTime dt;
+        dt.Clear();
+        dt.year = 2008; dt.mon = 8; dt.mday = 30;
+        dt.hour = 1; dt.min = 45; dt.sec = 36;
+        dt.isUTC = true;
+        dt.fractionalNanoseconds = 123000000; // should become ".123"
+        EXPECT_EQ(dt.ToXmlString(), "2008-08-30T01:45:36.123Z");
+    }
+
+    // example matching SubBlockMetadata test: 7 digits -> ".6707018"
+    {
+        XmlDateTime dt;
+        dt.Clear();
+        dt.year = 2019; dt.mon = 11; dt.mday = 15;
+        dt.hour = 8; dt.min = 0; dt.sec = 43;
+        dt.isUTC = true;
+        dt.fractionalNanoseconds = 670701800; // ".6707018"
+        EXPECT_EQ(dt.ToXmlString(), "2019-11-15T08:00:43.6707018Z");
+    }
+
+    // fractional with single-digit -> ".1" and timezone offset emitted
+    {
+        XmlDateTime dt;
+        dt.Clear();
+        dt.year = 2008; dt.mon = 8; dt.mday = 30;
+        dt.hour = 1; dt.min = 45; dt.sec = 36;
+        dt.isUTC = false;
+        dt.offsetHours = 5;
+        dt.offsetMinutes = 30;
+        dt.fractionalNanoseconds = 100000000; // ".1"
+        EXPECT_EQ(dt.ToXmlString(), "2008-08-30T01:45:36.1+05:30");
+    }
+
+    // full 9-digit fractional part preserved
+    {
+        XmlDateTime dt;
+        dt.Clear();
+        dt.year = 2008; dt.mon = 8; dt.mday = 30;
+        dt.hour = 1; dt.min = 45; dt.sec = 36;
+        dt.isUTC = true;
+        dt.fractionalNanoseconds = 999999999;
+        EXPECT_EQ(dt.ToXmlString(), "2008-08-30T01:45:36.999999999Z");
+    }
+}
+
 TEST(MetadataReading, DimensionInfoChannels1Test)
 {
     auto mockMdSegment = make_shared<MockMetadataSegment>(MockMetadataSegment::Type::Data1);
