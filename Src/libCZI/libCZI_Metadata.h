@@ -26,14 +26,15 @@ namespace libCZI
     /// This structure specifies the information in an XSD-DateTime field (cf. https://www.w3schools.com/XML/schema_dtypes_date.asp).
     struct LIBCZI_API XmlDateTime
     {
-        int sec;   ///< Seconds after the minute - [0, 60] including leap second
-        int min;   ///< minutes after the hour - [0, 59]
-        int hour;  ///< hours since midnight - [0, 23]
-        int mday;  ///< day of the month - [1, 31]
-        int mon;   ///< months since January - [0, 11]
-        int year;  ///< year [-9999 - 9999]
+        int fractionalNanoseconds;  ///< The fractional part of the seconds, in nanoseconds. This is a value between 0 and 999,999,999.
+        int sec;                    ///< Seconds after the minute - [0, 60] including leap second
+        int min;                    ///< minutes after the hour - [0, 59]
+        int hour;                   ///< hours since midnight - [0, 23]
+        int mday;                   ///< day of the month - [1, 31]
+        int mon;                    ///< months since January - [0, 11]
+        int year;                   ///< year [-9999 - 9999]
 
-        bool isUTC;///< True if this object is specifying the time-date in UTC.
+        bool isUTC;                 ///< True if this object is specifying the time-date in UTC.
 
         /// The hours of the timezone-offset. If greater than 24 or less than -24, it indicates an invalid timezone-offset.
         int offsetHours;
@@ -48,6 +49,7 @@ namespace libCZI
             this->isUTC = false;
             this->offsetHours = (std::numeric_limits<int>::min)();
             this->offsetMinutes = (std::numeric_limits<int>::min)();
+            this->fractionalNanoseconds = 0;
         }
 
         /// Query if this object uses a "time zone offset". This is the case of the fields offsetHours and offsetMinutes

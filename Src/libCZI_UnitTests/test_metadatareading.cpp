@@ -508,6 +508,48 @@ TEST(MetadataReading, DateTimeParse1Test)
     EXPECT_FALSE(b) << "Not expecting a valid parsing.";
 }
 
+TEST(MetadataReading, DateTimeFractionParsingTests)
+{
+    XmlDateTime dt;
+
+    // no fractional part -> 0
+    bool b = XmlDateTime::TryParse("2008-08-30T01:45:36Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.sec, 36);
+    EXPECT_EQ(dt.fractionalNanoseconds, 0);
+
+    // simple fractional -> padded to nanoseconds
+    b = XmlDateTime::TryParse("2008-08-30T01:45:36.123Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.fractionalNanoseconds, 123000000);
+
+    // fractional with trailing zeros -> treated as zero if all zeros
+    b = XmlDateTime::TryParse("2008-08-30T01:45:36.000Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.fractionalNanoseconds, 0);
+
+    // example from SubBlockMetadata test: 7 digits padded to 9
+    b = XmlDateTime::TryParse("2019-11-15T08:00:43.6707018Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.fractionalNanoseconds, 670701800);
+
+    // truncation (no rounding) when extra digits less than rounding threshold
+    b = XmlDateTime::TryParse("2008-08-30T01:45:36.1234567894Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.fractionalNanoseconds, 123456789);
+
+    // rounding up when the first discarded digit >= '5'
+    b = XmlDateTime::TryParse("2008-08-30T01:45:36.1234567895Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.fractionalNanoseconds, 123456790);
+
+    // rounding that would overflow nanoseconds: clamp to 999,999,999 (no carry into seconds)
+    b = XmlDateTime::TryParse("2008-08-30T01:45:36.9999999995Z", &dt);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(dt.fractionalNanoseconds, 999999999);
+    EXPECT_EQ(dt.sec, 36) << "Rounding must not carry into seconds (project choice: clamp).";
+}
+
 TEST(MetadataReading, DimensionInfoChannels1Test)
 {
     auto mockMdSegment = make_shared<MockMetadataSegment>(MockMetadataSegment::Type::Data1);
