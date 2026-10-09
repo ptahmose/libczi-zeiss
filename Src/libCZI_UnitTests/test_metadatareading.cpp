@@ -538,16 +538,16 @@ TEST(MetadataReading, DateTimeFractionParsingTests)
     EXPECT_TRUE(b);
     EXPECT_EQ(dt.fractionalNanoseconds, 123456789);
 
-    // rounding up when the first discarded digit >= '5'
+    // truncation (no rounding) when the first discarded digit >= '5'
     b = XmlDateTime::TryParse("2008-08-30T01:45:36.1234567895Z", &dt);
     EXPECT_TRUE(b);
-    EXPECT_EQ(dt.fractionalNanoseconds, 123456790);
+    EXPECT_EQ(dt.fractionalNanoseconds, 123456789);
 
-    // rounding that would overflow nanoseconds: clamp to 999,999,999 (no carry into seconds)
+    // truncation (no rounding) that would overflow nanoseconds: clamp to 999,999,999 (no carry into seconds)
     b = XmlDateTime::TryParse("2008-08-30T01:45:36.9999999995Z", &dt);
     EXPECT_TRUE(b);
     EXPECT_EQ(dt.fractionalNanoseconds, 999999999);
-    EXPECT_EQ(dt.sec, 36) << "Rounding must not carry into seconds (project choice: clamp).";
+    EXPECT_EQ(dt.sec, 36) << "Truncation must not carry into seconds (project choice: clamp).";
 }
 
 TEST(MetadataReading, DimensionInfoChannels1Test)

@@ -710,44 +710,27 @@ bool libCZI::XmlDateTime::IsValid() const
             dateTime.sec = std::stoi(pieces_match[6]);
         }
 
-        // parse fractional seconds (group 7), if present
+        // parse fractional seconds (group 7), truncating to nanoseconds (no rounding)
         if (pieces_match[7].matched)
         {
             auto fracStr = pieces_match[7].str(); // like ".123456789123"
             if (!fracStr.empty() && fracStr[0] == '.')
             {
                 string digits = fracStr.substr(1); // "123456789123"
-                bool roundUp = false;
+                // Truncate extra digits (no rounding)
                 if (digits.length() > 9)
                 {
-                    // round-half-up based on first discarded digit
-                    if (digits[9] >= '5')
-                    {
-                        roundUp = true;
-                    }
-
                     digits = digits.substr(0, 9);
                 }
 
+                // Pad with zeros to nanoseconds precision
                 if (digits.length() < 9)
                 {
                     digits.append(9 - digits.length(), '0');
                 }
 
-                int ns = std::stoi(digits); // 0..999999999
-
-                if (roundUp)
-                {
-                    ns += 1;
-
-                    // DO NOT carry into seconds; clamp to max nanoseconds instead
-                    if (ns >= 1000000000)
-                    {
-                        ns = 999999999;
-                    }
-                }
-
-                dateTime.fractionalNanoseconds = ns;
+                dateTime.fractionalNanoseconds = std::stoi(digits); // 0..999999999
+                // fractionalNanoseconds == 0 is treated as "no fractional part"
             }
         }
 
