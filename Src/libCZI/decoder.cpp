@@ -4,6 +4,7 @@
 
 #include "decoder.h"
 #include "../JxrDecode/JxrDecode.h"
+#include "turbojpeg.h"
 #include "bitmapData.h"
 #include "stdAllocator.h"
 #include "BitmapOperations.h"

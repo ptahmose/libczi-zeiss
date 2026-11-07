@@ -24,6 +24,8 @@ namespace libCZI
         ZStd1,              ///< Identifies a decoder capable of decoding a zstd compressed image (type "zstd1").
 
         ChunkedCompression, ///< Identifies a decoder capable of decoding an image compressed with the chunked-compression scheme.
+
+        Jpg                 ///< Identifies a decoder capable of decoding a JPG compressed image.
     };
 
     class IBitmapData;

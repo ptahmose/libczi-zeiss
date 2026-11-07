@@ -35,6 +35,21 @@ namespace libCZI
             std::shared_ptr<libCZI::IBitmapData> Decode(const void* ptrData, size_t size, const libCZI::PixelType* pixelType, const std::uint32_t* width, const std::uint32_t* height, const char* additional_arguments) override;
         };
 
+        class CWicJpgDecoder : public libCZI::IDecoder
+        {
+        private:
+            IWICImagingFactory* pFactory;
+        public:
+            static std::shared_ptr<CWicJpgxrDecoder> Create();
+
+            CWicJpgDecoder() = delete;
+            explicit CWicJpgDecoder(IWICImagingFactory* pFactory);
+            virtual ~CWicJpgDecoder();
+
+        public:
+            std::shared_ptr<libCZI::IBitmapData> Decode(const void* ptrData, size_t size, const libCZI::PixelType* pixelType, const std::uint32_t* width, const std::uint32_t* height, const char* additional_arguments) override;
+        };
+
     }  // namespace detail
 } // namespace libCZI
 

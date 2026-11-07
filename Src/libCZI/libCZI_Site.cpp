@@ -120,6 +120,10 @@ public:
             return this->chunkedCompressiondecoder;
         }
 #endif
+        case ImageDecoderType::Jpg:
+        {
+            return CWicJpgDecoder::Create();
+        }
         }
 
         return shared_ptr<IDecoder>();

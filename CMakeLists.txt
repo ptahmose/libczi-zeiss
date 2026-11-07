@@ -134,7 +134,9 @@ option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_ZSTD "Prefer a ZSTD-package present o
 
 # When this option is ON, we try to use an existing RapidJSON-library. Otherwise, we download a private
 #  copy of RapidJSON during the CMake-run. This option is only relevant if building CZICmd.
-option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_RAPIDJSON "Prefer an RapidJSON-package present on the system" ON)
+option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_RAPIDJSON "Prefer a RapidJSON-package present on the system" ON)
+
+option(LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_JPEGTURBO "Use an installed libjpeg-turbo package with static TurboJPEG" OFF)
 
 # Experimental functionality policy.
 #
