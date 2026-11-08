@@ -313,7 +313,7 @@ endif()
 # supply its static archive, including when libCZI itself is built as a DLL
 # or shared library.
 if (LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_JPEGTURBO)
-  find_package(libjpeg-turbo CONFIG REQUIRED)
+  find_package(libjpeg-turbo 3.0 CONFIG REQUIRED)
   if (NOT TARGET libjpeg-turbo::turbojpeg-static)
     message(FATAL_ERROR "The installed libjpeg-turbo package must provide libjpeg-turbo::turbojpeg-static")
   endif()

@@ -78,6 +78,8 @@ public:
 
         switch (type)
         {
+        case ImageDecoderType::Jpg:
+            return CSiteImpBase::GetDecoder(type, arguments);
         case ImageDecoderType::JPXR_JxrLib:
         {
             std::call_once(jxrDecoderInitialized,
@@ -120,10 +122,6 @@ public:
             return this->chunkedCompressiondecoder;
         }
 #endif
-        case ImageDecoderType::Jpg:
-        {
-            return CWicJpgDecoder::Create();
-        }
         }
 
         return shared_ptr<IDecoder>();
@@ -136,6 +134,8 @@ class CSiteImpJxrLib : public CSiteImpBase
 private:
     std::once_flag  jxrDecoderInitialized;
     std::shared_ptr<IDecoder> jpgXrdecoder;
+    std::once_flag  jpgDecoder_initialized;
+    std::shared_ptr<IDecoder> jpg_decoder;
     std::once_flag  zstd0DecoderInitialized;
     std::shared_ptr<IDecoder> zstd0decoder;
     std::once_flag  zstd1DecoderInitialized;
@@ -151,6 +151,16 @@ public:
 
         switch (type)
         {
+        case ImageDecoderType::Jpg:
+        {
+            std::call_once(jpgDecoder_initialized,
+                [this]()
+                {
+                    this->jpg_decoder = JpgDecoder::Create();
+                });
+
+            return this->jpg_decoder;
+        }
         case ImageDecoderType::JPXR_JxrLib:
         {
             std::call_once(jxrDecoderInitialized,

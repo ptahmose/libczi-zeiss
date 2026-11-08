@@ -25,7 +25,7 @@ include(CMakeFindDependencyMacro)
 
 if(NOT @LIBCZI_BUILD_DYNLIB@)
   if(@LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_JPEGTURBO@)
-    find_dependency(libjpeg-turbo CONFIG)
+    find_dependency(libjpeg-turbo 3.0 CONFIG)
   elseif(NOT TARGET libczi_turbojpeg)
     add_library(libczi_turbojpeg STATIC IMPORTED)
     set_target_properties(libczi_turbojpeg PROPERTIES IMPORTED_LOCATION
