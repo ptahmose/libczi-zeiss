@@ -30,23 +30,25 @@ namespace
         return decoder;
     }
 
-    std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlockData_JpgXr(
+    std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlockData_Generic(
             const void* pv,
             size_t size,
             libCZI::PixelType pixelType,
             std::uint32_t width,
             std::uint32_t height,
-            bool handle_jxr_bitmap_mismatch)
+            bool handle_bitmap_mismatch,
+            ImageDecoderType decoder_type,
+            const char* codec_name)
     {
-        auto dec = GetRequiredDecoder(ImageDecoderType::JPXR_JxrLib, "JPEG XR");
-        if (!handle_jxr_bitmap_mismatch)
+        auto dec = GetRequiredDecoder(decoder_type, codec_name);
+        if (!handle_bitmap_mismatch)
         {
             return dec->Decode(pv, size, pixelType, width, height);
         }
         else
         {
-            // This means - according to the "resolution protocol", if there is a mismatch between the bitmap encoded as JpgXR and the
-            //  description in the subblock, we have to crop or pad the bitmap to the size described in the subblock.
+            // Decode using the dimensions and pixel type stored in the JPEG or JPEG XR payload.
+            // The subblock metadata determines the final dimensions and pixel type.
             auto decoded_bitmap = dec->Decode(pv, size, nullptr, nullptr, nullptr);
             if (decoded_bitmap->GetWidth() == width &&
                 decoded_bitmap->GetHeight() == height &&
@@ -56,9 +58,7 @@ namespace
             }
             else
             {
-                // ok, we have a discrepancy between the size of the bitmap and the size described in the subblock, so let's crop or pad the bitmap
-
-                // create a bitmap of the size described in the subblock
+                // Preserve the top-left origin when cropping or padding.
                 auto adjusted_bitmap = CStdBitmapData::Create(pixelType, width, height);
                 CBitmapOperations::Fill(adjusted_bitmap.get(), RgbFloatColor{ 0,0,0 });
                 const ScopedBitmapLockerSP adjusted_bitmap_lock{ adjusted_bitmap };
@@ -77,10 +77,31 @@ namespace
                 copy_info.dstWidth = adjusted_bitmap->GetWidth();
                 copy_info.dstHeight = adjusted_bitmap->GetHeight();
                 copy_info.drawTileBorder = false;
+                // The copy also converts to the declared pixel type when needed.
+                // An unsupported conversion raises an exception.
                 CBitmapOperations::CopyWithOffset(copy_info);
                 return adjusted_bitmap;
             }
         }
+    }
+
+    std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlockData_JpgXr(
+            const void* pv,
+            size_t size,
+            libCZI::PixelType pixelType,
+            std::uint32_t width,
+            std::uint32_t height,
+            bool handle_jxr_bitmap_mismatch)
+    {
+        return CreateBitmapFromSubBlockData_Generic(
+            pv,
+            size,
+            pixelType,
+            width,
+            height,
+            handle_jxr_bitmap_mismatch,
+            ImageDecoderType::JPXR_JxrLib,
+            "JPEG XR");
     }
 
     std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_JpgXr(ISubBlock* subBlk, bool handle_jxr_bitmap_mismatch)
@@ -101,47 +122,15 @@ namespace
             std::uint32_t height,
             bool handle_jpg_bitmap_mismatch)
     {
-        auto dec = GetRequiredDecoder(ImageDecoderType::Jpg, "JPEG");
-        if (!handle_jpg_bitmap_mismatch)
-        {
-            return dec->Decode(pv, size, pixelType, width, height);
-        }
-        else
-        {
-            // Validate the pixel type and use the decoded dimensions to crop or pad.
-            auto decoded_bitmap = dec->Decode(pv, size, &pixelType, nullptr, nullptr);
-            if (decoded_bitmap->GetWidth() == width &&
-                decoded_bitmap->GetHeight() == height)
-            {
-                return decoded_bitmap;
-            }
-            else
-            {
-                // ok, we have a discrepancy between the size of the bitmap and the size described in the subblock, so let's crop or pad the bitmap
-
-                // create a bitmap of the size described in the subblock
-                auto adjusted_bitmap = CStdBitmapData::Create(pixelType, width, height);
-                CBitmapOperations::Fill(adjusted_bitmap.get(), RgbFloatColor{ 0,0,0 });
-                const ScopedBitmapLockerSP adjusted_bitmap_lock{ adjusted_bitmap };
-                const ScopedBitmapLockerSP decoded_bitmap_lock{ decoded_bitmap };
-                CBitmapOperations::CopyWithOffsetInfo copy_info;
-                copy_info.xOffset = 0;
-                copy_info.yOffset = 0;
-                copy_info.srcPixelType = decoded_bitmap->GetPixelType();
-                copy_info.srcPtr = decoded_bitmap_lock.ptrDataRoi;
-                copy_info.srcStride = decoded_bitmap_lock.stride;
-                copy_info.srcWidth = decoded_bitmap->GetWidth();
-                copy_info.srcHeight = decoded_bitmap->GetHeight();
-                copy_info.dstPixelType = pixelType;
-                copy_info.dstPtr = adjusted_bitmap_lock.ptrDataRoi;
-                copy_info.dstStride = adjusted_bitmap_lock.stride;
-                copy_info.dstWidth = adjusted_bitmap->GetWidth();
-                copy_info.dstHeight = adjusted_bitmap->GetHeight();
-                copy_info.drawTileBorder = false;
-                CBitmapOperations::CopyWithOffset(copy_info);
-                return adjusted_bitmap;
-            }
-        }
+        return CreateBitmapFromSubBlockData_Generic(
+            pv,
+            size,
+            pixelType,
+            width,
+            height,
+            handle_jpg_bitmap_mismatch,
+            ImageDecoderType::Jpg,
+            "JPEG");
     }
 
     std::shared_ptr<libCZI::IBitmapData> CreateBitmapFromSubBlock_Jpg(ISubBlock* subBlk, bool handle_jpg_bitmap_mismatch)
