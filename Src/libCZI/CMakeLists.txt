@@ -326,9 +326,23 @@ else()
   set(_jpeg_source_dir "${CMAKE_CURRENT_BINARY_DIR}/jpeg-turbo-src")
   set(_jpeg_binary_dir "${CMAKE_CURRENT_BINARY_DIR}/jpeg-turbo-build")
 
+  # Apply the same symbol mapping to the bundled codec, its C dependencies,
+  # and libCZI's declarations and calls. Forced inclusion covers every C file
+  # in the external build, including the zlib and libspng object libraries.
+  set(_jpeg_rename_header "${CMAKE_CURRENT_SOURCE_DIR}/turbojpeg_defines.h")
+  if (MSVC OR CMAKE_C_SIMULATE_ID STREQUAL "MSVC")
+    set(_jpeg_force_include "/FI\"${_jpeg_rename_header}\"")
+    set_property(SOURCE decoder.cpp APPEND PROPERTY COMPILE_OPTIONS "/FI${_jpeg_rename_header}")
+  else()
+    set(_jpeg_force_include "-include \"${_jpeg_rename_header}\"")
+    set_property(SOURCE decoder.cpp APPEND PROPERTY COMPILE_OPTIONS "-include" "${_jpeg_rename_header}")
+  endif()
+  set(_jpeg_c_flags "${CMAKE_C_FLAGS} ${_jpeg_force_include}")
+
   # PIC lets the same archive link into shared libCZI on platforms that need it.
   # On MSVC, match libCZI's choice of static or dynamic C runtime.
   set(_jpeg_cmake_args
+      "-DCMAKE_C_FLAGS:STRING=${_jpeg_c_flags}"
       "-DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}"
       "-DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}"
       "-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON"
@@ -385,10 +399,18 @@ else()
     GIT_SHALLOW    TRUE
     SOURCE_DIR     "${_jpeg_source_dir}"
     BINARY_DIR     "${_jpeg_binary_dir}"
+    # Upstream undefines tj3Init to implement its compatibility entry point.
+    # Restore our mapping there so this definition is renamed as well.
+    PATCH_COMMAND "${CMAKE_COMMAND}"
+      "-DFILE=<SOURCE_DIR>/src/turbojpeg.c"
+      "-DRENAME_HEADER=${_jpeg_rename_header}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/patch_turbojpeg_init.cmake"
     LIST_SEPARATOR "|"
     CMAKE_ARGS     ${_jpeg_cmake_args}
     BUILD_COMMAND  "${CMAKE_COMMAND}" --build <BINARY_DIR> ${_jpeg_build_config} --target turbojpeg-static
     BUILD_BYPRODUCTS ${_jpeg_byproducts}
+    # Let the external build's dependency tracking notice rename-header edits.
+    BUILD_ALWAYS TRUE
     INSTALL_COMMAND ""
   )
 
