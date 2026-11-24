@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Carl Zeiss Microscopy GmbH
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-#include "../JxrDecode/JxrDecode.h"
+#include "../libCZI/decoder.h"
+#include "../libCZI/decoder_wic.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <bcrypt.h>
+#include <objbase.h>
 
 #include <algorithm>
 #include <array>
@@ -14,10 +16,10 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <tuple>
 #include <vector>
 
 namespace
@@ -54,23 +56,52 @@ namespace
         return { data, size };
     }
 
-    std::vector<std::uint8_t> Decode(const EncodedImage& image)
+    class ComApartment
     {
-        std::vector<std::uint8_t> pixels;
-        using JxrDecode = libCZI::detail::JxrDecode;
-        JxrDecode::Decode(image.data, image.size,
-            [&pixels](JxrDecode::PixelFormat format, std::uint32_t width, std::uint32_t height)
-                -> std::tuple<void*, std::uint32_t>
+    public:
+        ComApartment()
+        {
+            const HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+            if (FAILED(result))
             {
-                if (format != JxrDecode::PixelFormat::kGray16 || width != kWidth || height != kHeight)
-                {
-                    throw std::runtime_error("Fixture is not the expected 2048x2048 Gray16 image.");
-                }
+                std::ostringstream error;
+                error << "COM initialization failed: 0x" << std::hex << static_cast<unsigned long>(result);
+                throw std::runtime_error(error.str());
+            }
+        }
 
-                const std::uint32_t stride = width * 2;
-                pixels.resize(static_cast<std::size_t>(stride) * height);
-                return std::make_tuple(pixels.data(), stride);
-            });
+        ~ComApartment() { CoUninitialize(); }
+        ComApartment(const ComApartment&) = delete;
+        ComApartment& operator=(const ComApartment&) = delete;
+    };
+
+    std::shared_ptr<libCZI::IBitmapData> Decode(libCZI::IDecoder& decoder, const EncodedImage& image)
+    {
+        const auto format = libCZI::PixelType::Gray16;
+        return decoder.Decode(image.data, image.size, &format, &kWidth, &kHeight, nullptr);
+    }
+
+    std::vector<std::uint8_t> PackedPixels(const std::shared_ptr<libCZI::IBitmapData>& bitmap)
+    {
+        if (!bitmap || bitmap->GetWidth() != kWidth || bitmap->GetHeight() != kHeight ||
+            bitmap->GetPixelType() != libCZI::PixelType::Gray16)
+        {
+            throw std::runtime_error("Decoded bitmap is not the expected 2048x2048 Gray16 image.");
+        }
+
+        const libCZI::ScopedBitmapLockerSP lock(bitmap);
+        const std::size_t rowSize = kWidth * 2;
+        if (!lock.ptrDataRoi || lock.stride < rowSize)
+        {
+            throw std::runtime_error("Decoded bitmap has invalid pixel data or stride.");
+        }
+
+        std::vector<std::uint8_t> pixels(rowSize * kHeight);
+        const auto* source = static_cast<const std::uint8_t*>(lock.ptrDataRoi);
+        for (std::size_t row = 0; row < kHeight; ++row)
+        {
+            std::copy_n(source + row * lock.stride, rowSize, pixels.data() + row * rowSize);
+        }
         return pixels;
     }
 
@@ -105,6 +136,40 @@ namespace
         }
         return result.str();
     }
+
+    void Benchmark(const char* name, libCZI::IDecoder& decoder, const EncodedImage& image)
+    {
+        for (int i = 0; i < kWarmup; ++i)
+        {
+            Decode(decoder, image);
+        }
+
+        std::vector<double> timings;
+        timings.reserve(kIterations);
+        std::shared_ptr<libCZI::IBitmapData> bitmap;
+        for (int i = 0; i < kIterations; ++i)
+        {
+            const auto start = std::chrono::steady_clock::now();
+            auto decoded = Decode(decoder, image);
+            const auto stop = std::chrono::steady_clock::now();
+            timings.push_back(std::chrono::duration<double, std::milli>(stop - start).count());
+            bitmap = std::move(decoded);
+        }
+
+        const auto pixels = PackedPixels(bitmap);
+        const std::string pixelHash = Sha256(pixels.data(), pixels.size());
+        std::cout << "\n" << name << "\nDecoded pixel SHA-256: " << pixelHash << "\n";
+        if (pixelHash != kExpectedPixelsSha256)
+        {
+            throw std::runtime_error(std::string(name) + " decoded pixels differ from the WPF reference.");
+        }
+
+        std::sort(timings.begin(), timings.end());
+        std::cout << std::fixed << std::setprecision(3)
+                  << "Decode time: min " << timings.front()
+                  << " ms, median " << timings[(kIterations - 1) / 2]
+                  << " ms, max " << timings.back() << " ms\n";
+    }
 }
 
 int main()
@@ -117,35 +182,11 @@ int main()
                   << "Encoded SHA-256: " << Sha256(image.data, image.size) << "\n"
                   << "Warmup/iterations: " << kWarmup << "/" << kIterations << "\n";
 
-        for (int i = 0; i < kWarmup; ++i)
-        {
-            Decode(image);
-        }
-
-        std::vector<double> timings;
-        timings.reserve(kIterations);
-        std::vector<std::uint8_t> pixels;
-        for (int i = 0; i < kIterations; ++i)
-        {
-            const auto start = std::chrono::steady_clock::now();
-            auto decoded = Decode(image);
-            const auto stop = std::chrono::steady_clock::now();
-            timings.push_back(std::chrono::duration<double, std::milli>(stop - start).count());
-            pixels = std::move(decoded);
-        }
-
-        const std::string pixelHash = Sha256(pixels.data(), pixels.size());
-        std::cout << "Decoded pixel SHA-256: " << pixelHash << "\n";
-        if (pixelHash != kExpectedPixelsSha256)
-        {
-            throw std::runtime_error("Decoded pixels differ from the WPF reference.");
-        }
-
-        std::sort(timings.begin(), timings.end());
-        std::cout << std::fixed << std::setprecision(3)
-                  << "Decode time: min " << timings.front()
-                  << " ms, median " << timings[(kIterations - 1) / 2]
-                  << " ms, max " << timings.back() << " ms\n";
+        const ComApartment comApartment;
+        auto jxrDecoder = libCZI::detail::CJxrLibDecoder::Create();
+        auto wicDecoder = libCZI::detail::CWicJpgxrDecoder::Create();
+        Benchmark("libCZI jxrlib", *jxrDecoder, image);
+        Benchmark("libCZI WIC", *wicDecoder, image);
         return 0;
     }
     catch (const std::exception& e)

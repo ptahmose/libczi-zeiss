@@ -34,10 +34,6 @@ endif()
 
 add_subdirectory(JxrDecode)
 
-if (LIBCZI_BUILD_JXR_BENCHMARK)
-  add_subdirectory(JxrBenchmark)
-endif()
-
 # if the build is configured to include the curl-based stream, we need to find or download the curl library
 if (LIBCZI_BUILD_CURL_BASED_STREAM)
   if (LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LIBCURL)
@@ -105,6 +101,10 @@ if(LIBCZI_BUILD_AZURESDK_BASED_STREAM)
 endif()
 
 add_subdirectory(libCZI)
+
+if (LIBCZI_BUILD_JXR_BENCHMARK)
+  add_subdirectory(JxrBenchmark)
+endif()
 
 # CZICmd and libCZIAPI are dependent on RapidJSON, so we need to find or download it.
 if (LIBCZI_BUILD_CZICMD OR LIBCZI_BUILD_LIBCZIAPI)
