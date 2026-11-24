@@ -110,6 +110,9 @@ option(LIBCZI_BUILD_AZURESDK_BASED_STREAM "include AzureSDK-based stream object 
 # Google-Test-framework which is downloaded from GitHub during the CMake-run.
 option(LIBCZI_BUILD_UNITTESTS "Build the gTest-based unit-tests" ON)
 
+# Build the standalone Windows JPEG-XR decoder benchmark.
+option(LIBCZI_BUILD_JXR_BENCHMARK "Build the standalone JPEG-XR decoder benchmark." OFF)
+
 # Whether to build the test- and sample-application CZICmd.
 option(LIBCZI_BUILD_CZICMD "Build application 'CZICmd'." OFF)
 

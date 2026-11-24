@@ -34,6 +34,10 @@ endif()
 
 add_subdirectory(JxrDecode)
 
+if (LIBCZI_BUILD_JXR_BENCHMARK)
+  add_subdirectory(JxrBenchmark)
+endif()
+
 # if the build is configured to include the curl-based stream, we need to find or download the curl library
 if (LIBCZI_BUILD_CURL_BASED_STREAM)
   if (LIBCZI_BUILD_PREFER_EXTERNALPACKAGE_LIBCURL)
